@@ -1,0 +1,14 @@
+{
+  "name": "snapsecret",
+  "version": "1.0.0",
+  "description": "This project builds the CDK stack required to operate Snap Secret in AWS.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prediff": "pipenv install",
+    "predeploy": "pipenv install",
+    "diff": "pipenv run cdk diff",
+    "deploy": "pipenv run cdk deploy -e snapsecret-backend && pipenv run cdk deploy -e snapsecret-frontend"
+  },
+  "author": "Steven Tan",
+  "license": "MIT"
+}

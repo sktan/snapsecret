@@ -1,0 +1,13 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+[dev-packages]
+boto3 = "*"
+boto3-stubs = {extras = ["dynamodb"], version = "*"}
+
+[requires]
+python_version = "3.9"

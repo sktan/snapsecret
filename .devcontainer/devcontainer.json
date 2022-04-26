@@ -1,0 +1,36 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "extensions": [
+    "eamodio.gitlens",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "EditorConfig.EditorConfig",
+    "johnsoncodehk.volar",
+    "GitHub.copilot",
+    "mutantdino.resourcemonitor"
+  ],
+  "features": {
+    // Used build and deploy docker containers
+    "docker-in-docker": {
+      "version": "latest",
+      "moby": true
+    },
+    "aws-cli": "latest",
+    "node": {
+      "version": "lts",
+      "nodeGypDependencies": true
+    }
+  },
+  "forwardPorts": [
+    8080
+  ],
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws/,target=/root/.aws,type=bind,consistency=cached"
+  ],
+  "remoteEnv": {
+    "AWS_PROFILE": "sktansandbox"
+  },
+  "postCreateCommand": "npm install -g aws-cdk"
+}
