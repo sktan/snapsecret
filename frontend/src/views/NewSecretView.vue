@@ -53,11 +53,11 @@
                             </div>
                             <div
                                 class="d-flex align-items-center justify-content-between mt-4 mb-0"
-                                v-show="!encryptSuccess"
                             >
                                 <button
                                     class="btn btn-primary"
                                     @click="encryptAndStore"
+                                    v-show="!encryptSuccess"
                                 >
                                     Store
                                 </button>
