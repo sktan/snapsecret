@@ -34,6 +34,8 @@
                                     class="form-control"
                                     id="encryption_passphrase"
                                     v-model="password"
+                                    required
+                                    minlength="8"
                                 />
                                 <label for="encryption_passphrase"
                                     >Encryption Password</label
@@ -42,6 +44,7 @@
                             <div
                                 class="form-floating mb-3"
                                 v-show="!encryptSuccess"
+                                required
                             >
                                 <textarea
                                     class="form-control"
@@ -142,6 +145,18 @@ export default {
             });
         },
         async encryptAndStore() {
+            if (this.password.length < 8) {
+                this.encryptFailureMessage =
+                    "Your password must be at least 8 characters long.";
+                this.encryptFailure = true;
+                return;
+            }
+            if (this.secret.length == 0) {
+                this.encryptFailureMessage = "Your secret cannot be empty.";
+                this.encryptFailure = true;
+                return;
+            }
+
             const salt = window.crypto.getRandomValues(new Uint8Array(16));
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
