@@ -38,7 +38,7 @@
                                     minlength="8"
                                 />
                                 <label for="encryption_passphrase"
-                                    >Encryption Password</label
+                                    >Encryption Passphrase</label
                                 >
                             </div>
                             <div
@@ -147,7 +147,7 @@ export default {
         async encryptAndStore() {
             if (this.password.length < 8) {
                 this.encryptFailureMessage =
-                    "Your password must be at least 8 characters long.";
+                    "Your encryption passphrase must be at least 8 characters long.";
                 this.encryptFailure = true;
                 return;
             }
