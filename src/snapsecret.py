@@ -166,7 +166,7 @@ def put_secret(event: dict) -> dict:
     # Check if secret.secret, secret.iv, secret.salt was provided
     secret_value = post_data.get("secret")
     if not secret_value or not {"secret", "iv", "salt"} <= secret_value.keys():
-        build_response(
+        return build_response(
             event=event, status_code=400, body={"error": "Missing secret value"}
         )
     # check if base64 string
@@ -175,7 +175,7 @@ def put_secret(event: dict) -> dict:
         and is_base64(secret_value["iv"])
         and is_base64(secret_value["salt"])
     ):
-        build_response(
+        return build_response(
             event=event, status_code=400, body={"error": "Invalid secret value"}
         )
 
