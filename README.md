@@ -73,11 +73,22 @@ This will deloy the entire service to AWS automatically without any configuratio
 
 You are also able to configure your deployment to use a custom domains and certificate for both CloudFront and API Gateway.
 
-This is done via the `cdk/cdk.json` file under the `context` key:
+This is done via the `cdk/cdk.json` file under the `context` keys:
+
+
+| Context Key           | Description             |
+| --------------------- | ----------------------- |
+| parameter_store_api   | The SSM Paramater Store entry for your API Gateway URL (defaults to `/snapsecret/apigateway`)    |
+| frontend_domain       | The domain that will point to CloudFront for the WebUI (using this requires `frontend_acm_arn`)  |
+| frontend_acm_arn      | The ACM certificate to be used for CloudFront (using this requires `frontend_domain`)            |
+| api_domain            | The domain that will point to the API Gateway (using this requires `api_acm_cert`)               |
+| api_acm_arn           | The ACM certificate to be used for the API Gateway (using this requires `api_domain`)            |
+
 
 ```
 {
   "context": {
+      "parameter_store_api": "/snapsecret/apigateway"
       "frontend_domain": "snapsecret.example.com",
       "frontend_acm_arn": "arn:aws:acm:us-east-1:1234567890:certificate/my-certificate-id",
       "api_domain": "api.snapsecret.example.com",
