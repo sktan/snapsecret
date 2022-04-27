@@ -1,8 +1,9 @@
 import aws_cdk as cdk
 from aws_cdk import (
-    # Duration,
+    Duration,
     Stack,
     aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
     aws_s3 as s3,
     aws_s3_deployment as s3_deployment,
     aws_lambda as lambda_,
@@ -13,7 +14,9 @@ from constructs import Construct
 
 
 class FrontendStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, backend_domain: str, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         frontend_domain = self.node.try_get_context("frontend_domain")
@@ -42,36 +45,70 @@ class FrontendStack(Stack):
         # Configure a cert if specified
         cf_cert = None
         if frontend_domain:
-            cf_cert = cloudfront.ViewerCertificate.from_acm_certificate(
-                aliases=[frontend_domain],
-                certificate=acm.Certificate.from_certificate_arn(
-                    self,
-                    id="snapsecret_frontend_cert",
-                    certificate_arn=frontend_acm_arn,
-                ),
-                security_policy=cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+            cf_cert = acm.Certificate.from_certificate_arn(
+                self,
+                id="snapsecret_frontend_cert",
+                certificate_arn=frontend_acm_arn,
             )
 
-        cf_dist = cloudfront.CloudFrontWebDistribution(
+        cf_headers = cloudfront.ResponseHeadersPolicy(
+            self,
+            id="snapsecret_frontend_headers",
+            custom_headers_behavior=cloudfront.ResponseCustomHeadersBehavior(
+                custom_headers=[
+                    cloudfront.ResponseCustomHeader(
+                        override=True,
+                        header="Feature-Policy",
+                        value="layout-animations 'none'; unoptimized-images 'none'; oversized-images 'none'; sync-script 'none'; sync-xhr 'none'; unsized-media 'none';",
+                    ),
+                ]
+            ),
+            security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
+                referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
+                    override=True,
+                    referrer_policy=cloudfront.HeadersReferrerPolicy.NO_REFERRER,
+                ),
+                xss_protection=cloudfront.ResponseHeadersXSSProtection(
+                    override=True, mode_block=True, protection=True
+                ),
+                content_type_options=cloudfront.ResponseHeadersContentTypeOptions(
+                    override=True,
+                ),
+                content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
+                    override=True,
+                    content_security_policy=f"default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; connect-src https://{backend_domain}/ data:",
+                ),
+                frame_options=cloudfront.ResponseHeadersFrameOptions(
+                    override=True,
+                    frame_option=cloudfront.HeadersFrameOption.DENY,
+                ),
+                strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
+                    override=True,
+                    access_control_max_age=Duration.days(365),
+                    preload=True,
+                ),
+            ),
+        )
+        cf_dist = cloudfront.Distribution(
             self,
             id="snapsecret_cloudfront",
+            domain_names=[frontend_domain],
+            default_root_object="index.html",
             price_class=cloudfront.PriceClass.PRICE_CLASS_ALL,
-            viewer_certificate=cf_cert,
-            origin_configs=[
-                cloudfront.SourceConfiguration(
-                    behaviors=[cloudfront.Behavior(is_default_behavior=True)],
-                    s3_origin_source=cloudfront.S3OriginConfig(
-                        s3_bucket_source=bucket,
-                        origin_access_identity=cf_oai,
-                    ),
-                )
-            ],
-            error_configurations=[
-                cloudfront.CfnDistribution.CustomErrorResponseProperty(
+            certificate=cf_cert,
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(
+                    bucket=bucket,
+                    origin_access_identity=cf_oai,
+                ),
+                response_headers_policy=cf_headers,
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            ),
+            error_responses=[
+                cloudfront.ErrorResponse(
                     # When an item wasn't found, it returns a 403 not 404.
-                    error_code=403,
-                    error_caching_min_ttl=0,
-                    response_code=200,
+                    http_status=403,
+                    response_http_status=200,
                     response_page_path="/index.html",
                 )
             ],
@@ -107,5 +144,5 @@ class FrontendStack(Stack):
         cdk.CfnOutput(
             self,
             id="snapsecret_frontend_url",
-            value=f"https://{cf_dist.distribution_domain_name}",
+            value=f"https://{cf_dist.domain_name}",
         )

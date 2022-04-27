@@ -6,9 +6,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prediff": "pipenv install",
     "predeploy": "pipenv install",
+    "prebootstrap": "pipenv install",
     "bootstrap": "pipenv run cdk bootstrap",
     "diff": "pipenv run cdk diff",
-    "deploy": "pipenv run cdk deploy -e snapsecret-backend && pipenv run cdk deploy -e snapsecret-frontend"
+    "deploy": "pipenv run cdk deploy snapsecret-backend && pipenv run cdk deploy snapsecret-frontend"
   },
   "author": "Steven Tan",
   "license": "MIT"

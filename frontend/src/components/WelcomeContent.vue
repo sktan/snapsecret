@@ -8,9 +8,9 @@ import { RouterLink } from "vue-router";
         <template #heading>What is SnapSecret?</template>
         SnapSecret is a simple and easy way to securely send secrets (such as
         passwords, API keys, etc.) to other people. This is done by encrypting
-        the secret within your browser with a password before sending it to the
-        backend storage. This ensures that the backend will never receive or
-        store the secret in it's unencrypted form.
+        the secret within your browser with a passphrase before sending it to
+        the backend storage. This ensures that the backend never receives,
+        stores or retrieves the secret in it's unencrypted form.
     </WelcomeItem>
 
     <WelcomeItem>
