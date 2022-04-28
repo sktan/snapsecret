@@ -33,9 +33,16 @@ class FrontendStack(Stack):
         if not (paramstore_path := self.node.try_get_context("parameter_store_api")):
             paramstore_path = "/snapsecret/apigateway"
 
-        apigw_url = boto3.client("ssm").get_parameter(Name=paramstore_path)[
-            "Parameter"
-        ]["Value"]
+        apigw_url = ""
+        try:
+            apigw_url = boto3.client("ssm").get_parameter(Name=paramstore_path)[
+                "Parameter"
+            ]["Value"]
+        except:
+            # Set it to localhost temporarily, as the param hasn't been created until the backend
+            # stack has been deployed. This is to fix the initial `cdk bootstrap` issue where
+            # it attempts to synthesize the stacks
+            apigw_url = "localhost"
 
         bucket = s3.Bucket(self, "snapsecret_frontend_bucket")
         cf_oai = cloudfront.OriginAccessIdentity(
@@ -89,10 +96,13 @@ class FrontendStack(Stack):
                 ),
             ),
         )
+        domain_names = None
+        if frontend_domain:
+            domain_names = [frontend_domain]
         cf_dist = cloudfront.Distribution(
             self,
             id="snapsecret_cloudfront",
-            domain_names=[frontend_domain],
+            domain_names=domain_names,
             default_root_object="index.html",
             price_class=cloudfront.PriceClass.PRICE_CLASS_ALL,
             certificate=cf_cert,
