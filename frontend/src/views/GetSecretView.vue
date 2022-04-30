@@ -48,12 +48,38 @@
                                 >
                             </div>
                             <div
-                                class="form-floating mb-3"
                                 v-show="decryptSuccess"
+                                class="input-group mb-3"
                             >
+                                <button
+                                    type="button"
+                                    v-bind:class="{
+                                        'btn-clipboard': !clipboardSuccess,
+                                        'btn-clipboard-success':
+                                            clipboardSuccess,
+                                    }"
+                                    title="Copy to clipboard"
+                                    @click="copyToClipboard"
+                                >
+                                    <svg
+                                        class="bi"
+                                        width="1em"
+                                        height="1em"
+                                        fill="currentColor"
+                                    >
+                                        <use
+                                            v-show="!clipboardSuccess"
+                                            xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard"
+                                        ></use>
+                                        <use
+                                            v-show="clipboardSuccess"
+                                            xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard-check"
+                                        ></use>
+                                    </svg>
+                                </button>
                                 <textarea
                                     class="form-control"
-                                    rows="10"
+                                    rows="5"
                                     v-model="secret"
                                     readonly
                                 ></textarea>
@@ -78,8 +104,42 @@
 </template>
 
 <style>
-.form-floating > textarea {
-    min-height: 100px !important;
+@import "bootstrap-icons/font/bootstrap-icons.css";
+
+.input-group > textarea {
+    padding-right: 30px !important;
+}
+
+.btn-clipboard:hover {
+    color: #0d6efd;
+}
+
+.btn-clipboard-success {
+    position: absolute;
+    top: 0.75em;
+    right: 0.5em;
+    z-index: 10;
+    display: block;
+    padding: 0.5em 0.75em 0.625em;
+    line-height: 1;
+    color: #0d6efd;
+    background-color: rgba(255, 255, 255, 0);
+    border: 0;
+    border-radius: 0.25rem;
+}
+
+.btn-clipboard {
+    position: absolute;
+    top: 0.75em;
+    right: 0.5em;
+    z-index: 10;
+    display: block;
+    padding: 0.5em 0.75em 0.625em;
+    line-height: 1;
+    color: #212529;
+    background-color: rgba(255, 255, 255, 0);
+    border: 0;
+    border-radius: 0.25rem;
 }
 
 @media (min-width: 1024px) {
@@ -109,6 +169,7 @@ export default {
             decryptSuccess: false,
             decryptFailure: false,
             decryptFailureMessage: "",
+            clipboardSuccess: false,
 
             password: "",
             secret: null,
@@ -121,6 +182,27 @@ export default {
         };
     },
     methods: {
+        async copyToClipboard() {
+            try {
+                // Fallback to document.execCommand('copy') for better browser coverage
+                if (!navigator.clipboard) {
+                    const textArea = document.getElementsByName("secret");
+                    textArea[0].focus();
+                    textArea[0].select();
+                    document.execCommand("copy");
+                } else {
+                    await navigator.clipboard.writeText(this.secret);
+                }
+
+                this.clipboardSuccess = true;
+
+                setTimeout(() => {
+                    this.clipboardSuccess = false;
+                }, 1500);
+            } catch (err) {
+                alert("Failed to copy text: " + err);
+            }
+        },
         async getKey(passphrase, salt) {
             const keyMaterial = await window.crypto.subtle.importKey(
                 "raw",
