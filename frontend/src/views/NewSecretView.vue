@@ -191,6 +191,7 @@ export default {
                     response.data.secret_id,
                 ].join("/");
                 this.encryptSuccess = true;
+                this.encryptFailure = false;
             } catch (err) {
                 if (err.response.status == 400) {
                     this.encryptFailure = true;
