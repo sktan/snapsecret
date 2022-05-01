@@ -117,3 +117,8 @@ You are able to run a local development environment by deploying the backend ser
 Once you have deployed the backend, you can run the `npm run dev` command to start the frontend development server.
 
 You will be able to find the backend lambda function source in the `src` directory.
+
+### CORS
+
+When running the backend in AWS, you need to be aware of CORS.
+The easy way to do this is to set the `dev_url` in the `cdk.json` configuration file within the `context` section.
