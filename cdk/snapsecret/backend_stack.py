@@ -36,6 +36,9 @@ class BackendStack(Stack):
         else:
             snapsecret_origins = apigw.Cors.ALL_ORIGINS
 
+        if dev_url := self.node.try_get_context("dev_url"):
+            snapsecret_origins.append(dev_url)
+
         table = dynamodb.Table(
             self,
             id="snapsecret_table",
