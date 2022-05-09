@@ -11,12 +11,12 @@ name: Lint Code Base
 # https://help.github.com/en/articles/workflow-syntax-for-github-actions
 #
 
-#############################
-# Start the job on all push #
-#############################
+##############################################################
+# Trigger on Pull Request events (open, reopen, synchronize) #
+##############################################################
 on:
-  push:
-    branches-ignore:
+  pull_request:
+    branches:
       - 'master'
 
 ###############
@@ -37,13 +37,27 @@ jobs:
       # Checkout the code base #
       ##########################
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          # Full git history is needed to get a proper list of changed files within `super-linter`
+          fetch-depth: 0
 
       ################################
       # Run Linter against code base #
       ################################
       - name: Lint Code Base
-        uses: docker://github/super-linter:v2.2.0
+        uses: github/super-linter@v4
         env:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_ANSIBLE: false
+
+      ###################################
+      # Run pre-commit against codebase #
+      ###################################
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+      - run: |
+            pip install pre-commit
+            sudo chown -R "$(id -u):$(id -g)" .
+            pre-commit run --from-ref master --to-ref HEAD

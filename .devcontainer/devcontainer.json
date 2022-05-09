@@ -7,7 +7,7 @@
     "ms-python.python",
     "ms-python.vscode-pylance",
     "EditorConfig.EditorConfig",
-    "johnsoncodehk.volar",
+    "vue.volar",
     "GitHub.copilot",
     "mutantdino.resourcemonitor"
   ],
@@ -32,5 +32,6 @@
   "remoteEnv": {
     "AWS_PROFILE": "sktansandbox"
   },
-  "postCreateCommand": "npm install -g aws-cdk"
+  "postCreateCommand": "npm install -g aws-cdk",
+  "postStartCommand": "pre-commit install"
 }
