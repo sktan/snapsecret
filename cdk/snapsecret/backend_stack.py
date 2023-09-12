@@ -1,6 +1,5 @@
 import aws_cdk as cdk
 from aws_cdk import (
-    # Duration,
     Stack,
     aws_dynamodb as dynamodb,
     aws_apigateway as apigw,
@@ -12,8 +11,6 @@ from constructs import Construct
 
 
 class BackendStack(Stack):
-    backend_domain = None
-
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -75,7 +72,7 @@ class BackendStack(Stack):
             ),
         )
         if api_domain:
-            api_alias = api.add_domain_name(
+            api.add_domain_name(
                 id="snapsecret_api_domain",
                 domain_name=api_domain,
                 certificate=acm.Certificate.from_certificate_arn(
@@ -85,20 +82,18 @@ class BackendStack(Stack):
                 ),
                 security_policy=apigw.SecurityPolicy.TLS_1_2,
             )
-            self.backend_domain = api_alias.domain_name
 
-            cdk.CfnOutput(
-                self,
-                id="snapsecret_api_alias_domain",
-                value=api_alias.domain_name_alias_domain_name,
-            )
-            cdk.CfnOutput(
-                self,
-                id="snapsecret_api_alias_url",
-                value=f"https://{api_alias.domain_name}/",
-            )
-        else:
-            self.backend_domain = api.domain_name
+        cdk.CfnOutput(
+            self,
+            id="snapsecret_api_domain",
+            value=api.domain_name if not api_domain else api_domain,
+        )
+
+        cdk.CfnOutput(
+            self,
+            id="snapsecret_api_url",
+            value=api.url if not api_domain else f"https://{api_domain}",
+        )
 
         secret_ep = api.root.add_resource("secret")
         secret_ep.add_method("PUT", apigw.LambdaIntegration(backend_lambda))
@@ -109,8 +104,16 @@ class BackendStack(Stack):
         # store the API endpoint into a parameter store value
         ssm.CfnParameter(
             self,
-            id="snapsecret_api_param",
-            name=paramstore_path,
+            id="snapsecret_api_url_param",
+            name=f"{paramstore_path}/url",
             type="String",
             value=api.url if not api_domain else f"https://{api_domain}",
+        )
+
+        ssm.CfnParameter(
+            self,
+            id="snapsecret_api_domain_param",
+            name=f"{paramstore_path}/domain",
+            type="String",
+            value=api.domain_name if not api_domain else api_domain,
         )
