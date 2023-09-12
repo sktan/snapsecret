@@ -153,7 +153,7 @@ class FrontendStack(Stack):
                     "../frontend",
                     bundling=cdk.BundlingOptions(
                         # Using Node v14 as AWS doesn't support Node v16 yet
-                        image=lambda_.Runtime.NODEJS_14_X.bundling_image,
+                        image=lambda_.Runtime.NODEJS_18_X.bundling_image,
                         command=[
                             "bash",
                             "-xc",
