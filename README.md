@@ -9,6 +9,7 @@ This ensures that the backend never receives, stores or retrieves the secret in 
 This service can be deployed to AWS with minimal costs to operate due to it's serverless nature.
 
 Deployed resources are as follows:
+
 - CloudFront Distribution
 - 2x S3 Buckets to store the assets + assets bundle
 - DynamoDB
@@ -56,6 +57,7 @@ Although the general web-access information may be stored as part of CloudFront 
 Deploying this is really easy, due to AWS CDK being used for building and deploying the entire website and backend services.
 
 To deploy the website, you will need the following requirements (already bundled within the Visual Studio Code Devcontainer)
+
 - An AWS account
 - AWS CDK v2
 - Python 3.9
@@ -63,7 +65,7 @@ To deploy the website, you will need the following requirements (already bundled
 - Nodejs
 - Docker (to build the website)
 
-```
+``` shell
 sktan ➜ ~/repos/sktan/snapsecret (master ✗) $ cd cdk
 sktan ➜ ~/repos/sktan/snapsecret/cdk (master ✗) $ npm run bootstrap # only need to run this once
 sktan ➜ ~/repos/sktan/snapsecret/cdk (master ✗) $ npm run deploy
@@ -75,7 +77,6 @@ You are also able to configure your deployment to use a custom domains and certi
 
 This is done via the `cdk/cdk.json` file under the `context` keys:
 
-
 | Context Key           | Description             |
 | --------------------- | ----------------------- |
 | parameter_store_api   | The SSM Paramater Store entry for your API Gateway URL (defaults to `/snapsecret/apigateway`)    |
@@ -84,8 +85,7 @@ This is done via the `cdk/cdk.json` file under the `context` keys:
 | api_domain            | The domain that will point to the API Gateway (using this requires `api_acm_cert`)               |
 | api_acm_arn           | The ACM certificate to be used for the API Gateway (using this requires `api_domain`)            |
 
-
-```
+``` json
 {
   "context": {
       "parameter_store_api": "/snapsecret/apigateway"
@@ -99,7 +99,7 @@ This is done via the `cdk/cdk.json` file under the `context` keys:
 
 Otherwise, you can include them during the `cdk deploy` command if you prefer:
 
-```
+``` shell
 sktan ➜ ~/repos/sktan/snapsecret/cdk (master ✗) $ pipenv run cdk deploy -c frontend_domain=snapsecret.example.com -c api_domain=api.snapsecret.example.com -c "api_acm_arn=arn:aws:acm:ap-southeast-2:1234567890:certificate/my-certificate-id" -c "frontend_acm_arn=arn:aws:acm:us-east-1:1234567890:certificate/my-certificate-id" -e snapsecret-backend
 sktan ➜ ~/repos/sktan/snapsecret/cdk (master ✗) $ pipenv run cdk deploy -c frontend_domain=snapsecret.example.com -c api_domain=api.snapsecret.example.com -c "api_acm_arn=arn:aws:acm:ap-southeast-2:1234567890:certificate/my-certificate-id" -c "frontend_acm_arn=arn:aws:acm:us-east-1:1234567890:certificate/my-certificate-id" -e snapsecret-frontend
 ```
@@ -107,6 +107,7 @@ sktan ➜ ~/repos/sktan/snapsecret/cdk (master ✗) $ pipenv run cdk deploy -c f
 ## Development
 
 Requirements:
+
 - Black (for Python formatting)
 - Eslint (for Nodejs formatting)
 - boto3 (for testing the lambda function)
