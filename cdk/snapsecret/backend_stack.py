@@ -1,6 +1,7 @@
 import aws_cdk as cdk
 from aws_cdk import (
     Stack,
+    Fn,
     aws_dynamodb as dynamodb,
     aws_apigateway as apigw,
     aws_ssm as ssm,
@@ -86,7 +87,7 @@ class BackendStack(Stack):
         cdk.CfnOutput(
             self,
             id="snapsecret_api_domain",
-            value=api.domain_name if not api_domain else api_domain,
+            value=api_domain if api_domain is not None else Fn.split("/", api.url, 4)[2],
         )
 
         cdk.CfnOutput(
@@ -115,5 +116,7 @@ class BackendStack(Stack):
             id="snapsecret_api_domain_param",
             name=f"{paramstore_path}/domain",
             type="String",
-            value=api.domain_name if not api_domain else api_domain,
+            value=api_domain
+            if api_domain is not None
+            else Fn.split("/", api.url, 4)[2],
         )
