@@ -12,7 +12,7 @@ backend_env = cdk.Environment(
 
 frontend_env = cdk.Environment(
     account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
-    region="us-east-1",  # Cloudfront always deploys to N. Virginia
+    region=os.environ.get("CDK_FRONTEND_REGION", backend_env.region),
 )
 
 app = cdk.App()
