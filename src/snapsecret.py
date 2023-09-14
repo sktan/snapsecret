@@ -5,6 +5,9 @@ import json
 import os
 import secrets
 import boto3
+import logging
+
+from botocore.exceptions import ClientError
 
 # Enables type hinting but only during development
 from typing import TYPE_CHECKING
@@ -165,15 +168,28 @@ def put_secret(event: dict) -> dict:
 
     # Check if secret.secret, secret.iv, secret.salt was provided
     secret_value = post_data.get("secret")
-    if not secret_value or not {"secret", "iv", "salt"} <= secret_value.keys():
+    if not secret_value or (
+        not {"secret", "iv", "salt"} <= secret_value.keys()
+        and not {"object_key", "iv", "salt"} <= secret_value.keys()
+    ):
         return build_response(
             event=event, status_code=400, body={"error": "Missing secret value"}
         )
     # check if base64 string
-    if not (
-        is_base64(secret_value["secret"])
-        and is_base64(secret_value["iv"])
-        and is_base64(secret_value["salt"])
+    if (
+        {"secret", "iv", "salt"} <= secret_value.keys()
+        and not (
+            is_base64(secret_value["secret"])
+            and is_base64(secret_value["iv"])
+            and is_base64(secret_value["salt"])
+        )
+    ) or (
+        {"object_key", "iv", "salt"} <= secret_value.keys()
+        and not (
+            secret_value["object_key"].replace("-", "").replace("_", "").isalnum()
+            and is_base64(secret_value["iv"])
+            and is_base64(secret_value["salt"]),
+        )
     ):
         return build_response(
             event=event, status_code=400, body={"error": "Invalid secret value"}
@@ -184,13 +200,43 @@ def put_secret(event: dict) -> dict:
     return build_response(event=event, body={"secret_id": secret_id})
 
 
+def get_s3_put_url(event: dict) -> dict:
+    object_key = secrets.token_urlsafe(32)
+    bucket = os.environ.get("SECRETS_BUCKET")
+    expiration = 3600
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=f"https://s3.{os.environ.get('AWS_REGION')}.amazonaws.com",
+    )
+    try:
+        response = s3_client.generate_presigned_url(
+            ClientMethod="put_object",
+            Params={"Bucket": bucket, "Key": object_key},
+            ExpiresIn=expiration,
+            HttpMethod="PUT",
+        )
+    except ClientError as e:
+        logging.error(e)
+
+    return build_response(
+        event=event, body={"put_url": response, "object_key": object_key}
+    )
+
+
 def handler(event: dict, context: dict) -> dict:
-    """Handles the HTTP response for requests to the /secret/:secret_id? endpoint"""
+    if event["path"].startswith("/secret"):
+        """Handles the HTTP response for requests to the /secret/:secret_id? endpoint"""
+        if event["httpMethod"] == "GET":
+            return get_secret(event)
 
-    if event["httpMethod"] == "GET":
-        return get_secret(event)
+        if event["httpMethod"] == "PUT":
+            return put_secret(event)
 
-    if event["httpMethod"] == "PUT":
-        return put_secret(event)
+    if event["path"].startswith("/file"):
+        """Handles the HTTP response for requests to the /file/ endpoint"""
+
+        if event["httpMethod"] == "GET":
+            return get_s3_put_url(event)
 
     return build_response(event=event, status_code=405)

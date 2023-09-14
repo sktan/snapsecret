@@ -12,8 +12,12 @@ import { RouterLink, RouterView } from "vue-router";
         <div
             class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0"
         >
+            <router-link class="btn btn-secondary me-2" :to="{ name: 'secret-file.new' }"
+                >New File Secret</router-link
+            >
+
             <router-link class="btn btn-primary" :to="{ name: 'secret.new' }"
-                >New Secret</router-link
+                >New Text Secret</router-link
             >
         </div>
     </nav>

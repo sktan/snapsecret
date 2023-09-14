@@ -42,17 +42,16 @@
                                 >
                             </div>
                             <div
-                                class="form-floating mb-3"
+                                class="mb-3"
                                 v-show="!encryptSuccess"
-                                required
                             >
-                                <textarea
+                                <input
+                                    type="file"
                                     class="form-control"
-                                    name="secret"
-                                    rows="5"
-                                    v-model="secret"
-                                ></textarea>
-                                <label for="secret">Secret</label>
+                                    name="attachment"
+                                    required
+                                    @change="onFileChanged($event)"
+                                />
                             </div>
                             <div
                                 class="d-flex align-items-center justify-content-between mt-4 mb-0"
@@ -107,6 +106,7 @@ export default {
 
             password: "",
             secret: "",
+            attachment: {},
         };
     },
     methods: {
@@ -130,6 +130,18 @@ export default {
                 true,
                 ["encrypt", "decrypt"]
             );
+        },
+        onFileChanged($event) {
+            const target = $event.target;
+            const file = $event.target.files[0];
+            this.attachment = file;
+            if (target && target.files) {
+                const reader = new FileReader();
+                reader.addEventListener('load', $event => {
+                    this.attachment.data = $event.target.result;
+                });
+                reader.readAsDataURL(file);
+            }
         },
         // buffer to base64
         async bufferToBase64Async(buffer) {
@@ -161,6 +173,26 @@ export default {
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
             const key = await this.getKey(this.password, salt);
+            let encryptedAttachmentData
+            let encryptedAttachmentName
+            if (this.attachment) {
+                encryptedAttachmentData = await window.crypto.subtle.encrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                    },
+                    key,
+                    enc.encode(this.attachment.data)
+                );
+                encryptedAttachmentName = await window.crypto.subtle.encrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                    },
+                    key,
+                    enc.encode(this.attachment.name)
+                );
+            }
 
             const ciphertext = await window.crypto.subtle.encrypt(
                 {
@@ -177,6 +209,8 @@ export default {
                 ),
                 salt: await this.bufferToBase64Async(salt),
                 iv: await this.bufferToBase64Async(iv),
+                attachment: this.attachment ? await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentData)) : null,
+                attachmentName: this.attachment ? await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentName)) : null,
             };
 
             try {

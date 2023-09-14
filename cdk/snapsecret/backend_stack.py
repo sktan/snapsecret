@@ -1,12 +1,14 @@
 import aws_cdk as cdk
 from aws_cdk import (
-    Stack,
+    Duration,
     Fn,
-    aws_dynamodb as dynamodb,
+    Stack,
     aws_apigateway as apigw,
-    aws_ssm as ssm,
-    aws_lambda as lambda_,
     aws_certificatemanager as acm,
+    aws_dynamodb as dynamodb,
+    aws_lambda as lambda_,
+    aws_s3 as s3,
+    aws_ssm as ssm,
 )
 from constructs import Construct
 
@@ -48,6 +50,24 @@ class BackendStack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
         )
 
+        bucket = s3.Bucket(
+            self,
+            "secret_file_bucket",
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(1),
+                    abort_incomplete_multipart_upload_after=Duration.days(1),
+                )
+            ],
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
+                    allowed_origins=snapsecret_origins,
+                )
+            ],
+        )
+
         backend_lambda = lambda_.Function(
             self,
             id="snapsecret_lambda",
@@ -56,12 +76,15 @@ class BackendStack(Stack):
             handler="snapsecret.handler",
             environment={
                 "SECRETS_TABLE": table.table_name,
+                "SECRETS_BUCKET": bucket.bucket_name,
                 "CORS_ORIGINS": ",".join(snapsecret_origins),
             },
         )
 
         # Configure Lambda permissions
         table.grant_read_write_data(backend_lambda)
+        bucket.grant_put(backend_lambda)
+        bucket.grant_read(backend_lambda)
 
         # Configure API gateway with /secret and /secret/:secrets_id endpoints
         api = apigw.RestApi(
@@ -87,7 +110,9 @@ class BackendStack(Stack):
         cdk.CfnOutput(
             self,
             id="snapsecret_api_domain",
-            value=api_domain if api_domain is not None else Fn.split("/", api.url, 4)[2],
+            value=api_domain
+            if api_domain is not None
+            else Fn.split("/", api.url, 4)[2],
         )
 
         cdk.CfnOutput(
@@ -101,6 +126,10 @@ class BackendStack(Stack):
 
         secret_get_ep = secret_ep.add_resource("{secret_id}")
         secret_get_ep.add_method("GET", apigw.LambdaIntegration(backend_lambda))
+
+        file_ep = api.root.add_resource("file")
+        file_ep_new = file_ep.add_resource("new")
+        file_ep_new.add_method("GET", apigw.LambdaIntegration(backend_lambda))
 
         # store the API endpoint into a parameter store value
         ssm.CfnParameter(
