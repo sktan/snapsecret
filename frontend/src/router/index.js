@@ -25,6 +25,12 @@ const router = createRouter({
       component: () => import("../views/GetSecretView.vue"),
       props: true,
     },
+    {
+      path: "/404", component: () => import("../views/404.vue"),
+    },
+    {
+      path: "/:pathMatch(.*)*", component: () => import("../views/404.vue"),
+    }
   ],
 });
 

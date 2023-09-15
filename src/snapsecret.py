@@ -137,6 +137,16 @@ def is_base64(input: str) -> bool:
         return False
 
 
+def get_secret_file(event: dict, secret: dict) -> dict:
+    get_url = get_s3_presigned_url("GET", secret["object_key"])
+    delete_url = get_s3_presigned_url("DELETE", secret["object_key"])
+
+    secret["get_url"] = get_url
+    secret["delete_url"] = delete_url
+
+    return build_response(event=event, body={"secret": secret})
+
+
 def get_secret(event: dict):
     """Handles the HTTP response for a GET request to the /secret/:secret_id endpoint
 
@@ -152,6 +162,8 @@ def get_secret(event: dict):
         return build_response(event=event, status_code=404)
 
     if secret := retrieve_secret_value(secret_id):
+        if {"object_key", "iv", "salt", "file_name"} <= secret.keys():
+            return get_secret_file(event=event, secret=secret)
         return build_response(event=event, body={"secret": secret})
 
     return build_response(event=event, status_code=404)
@@ -170,7 +182,7 @@ def put_secret(event: dict) -> dict:
     secret_value = post_data.get("secret")
     if not secret_value or (
         not {"secret", "iv", "salt"} <= secret_value.keys()
-        and not {"object_key", "iv", "salt"} <= secret_value.keys()
+        and not {"object_key", "iv", "salt", "file_name"} <= secret_value.keys()
     ):
         return build_response(
             event=event, status_code=400, body={"error": "Missing secret value"}
@@ -184,11 +196,12 @@ def put_secret(event: dict) -> dict:
             and is_base64(secret_value["salt"])
         )
     ) or (
-        {"object_key", "iv", "salt"} <= secret_value.keys()
+        {"object_key", "iv", "salt", "file_name"} <= secret_value.keys()
         and not (
             secret_value["object_key"].replace("-", "").replace("_", "").isalnum()
             and is_base64(secret_value["iv"])
-            and is_base64(secret_value["salt"]),
+            and is_base64(secret_value["salt"])
+            and is_base64(secret_value["file_name"]),
         )
     ):
         return build_response(
@@ -200,10 +213,24 @@ def put_secret(event: dict) -> dict:
     return build_response(event=event, body={"secret_id": secret_id})
 
 
-def get_s3_put_url(event: dict) -> dict:
+def get_new_file(event: dict) -> dict:
     object_key = secrets.token_urlsafe(32)
+    put_url = get_s3_presigned_url("PUT", object_key)
+
+    return build_response(
+        event=event, body={"put_url": put_url, "object_key": object_key}
+    )
+
+
+def get_s3_presigned_url(method: str, object_key: str) -> str:
     bucket = os.environ.get("SECRETS_BUCKET")
     expiration = 3600
+
+    client_methods = {
+        "PUT": "put_object",
+        "GET": "get_object",
+        "DELETE": "delete_object",
+    }
 
     s3_client = boto3.client(
         "s3",
@@ -211,17 +238,15 @@ def get_s3_put_url(event: dict) -> dict:
     )
     try:
         response = s3_client.generate_presigned_url(
-            ClientMethod="put_object",
+            ClientMethod=client_methods[method],
             Params={"Bucket": bucket, "Key": object_key},
             ExpiresIn=expiration,
-            HttpMethod="PUT",
+            HttpMethod=method,
         )
     except ClientError as e:
         logging.error(e)
 
-    return build_response(
-        event=event, body={"put_url": response, "object_key": object_key}
-    )
+    return response
 
 
 def handler(event: dict, context: dict) -> dict:
@@ -237,6 +262,6 @@ def handler(event: dict, context: dict) -> dict:
         """Handles the HTTP response for requests to the /file/ endpoint"""
 
         if event["httpMethod"] == "GET":
-            return get_s3_put_url(event)
+            return get_new_file(event)
 
     return build_response(event=event, status_code=405)

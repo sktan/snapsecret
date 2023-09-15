@@ -5,63 +5,34 @@
                 <div class="card shadow-lg border-0 rounded-lg mt-12">
                     <div class="card-header">
                         <h3 class="text-center font-weight-light my-3">
-                            Create a New Secret
+                            Upload a New Secret
                         </h3>
                     </div>
                     <div class="card-body">
-                        <div
-                            v-show="encryptSuccess"
-                            class="alert alert-success"
-                            role="alert"
-                        >
+                        <div v-show="encryptSuccess" class="alert alert-success" role="alert">
                             Your secret was successfully encrypted stored,
                             please send this URL to your recipient. <br />
                             <router-link :to="'/secret/' + decryptSecretId">
                                 {{ decryptSecretUrl }}
                             </router-link>
                         </div>
-                        <div
-                            v-show="encryptFailure"
-                            class="alert alert-danger"
-                            role="alert"
-                        >
+                        <div v-show="encryptFailure" class="alert alert-danger" role="alert">
                             {{ encryptFailureMessage }}
                         </div>
 
                         <form @submit.prevent="">
                             <div class="form-floating mb-3">
-                                <input
-                                    class="form-control"
-                                    id="encryption_passphrase"
-                                    v-model="password"
-                                    required
-                                    minlength="8"
-                                />
-                                <label for="encryption_passphrase"
-                                    >Encryption Passphrase</label
-                                >
+                                <input class="form-control" id="encryption_passphrase" v-model="password" required
+                                    minlength="8" />
+                                <label for="encryption_passphrase">Encryption Passphrase</label>
                             </div>
-                            <div
-                                class="mb-3"
-                                v-show="!encryptSuccess"
-                            >
-                                <input
-                                    type="file"
-                                    class="form-control"
-                                    name="attachment"
-                                    required
-                                    @change="onFileChanged($event)"
-                                />
+                            <div class="mb-3" v-show="!encryptSuccess">
+                                <input type="file" class="form-control" name="attachment" required
+                                    @change="onFileChanged($event)" />
                             </div>
-                            <div
-                                class="d-flex align-items-center justify-content-between mt-4 mb-0"
-                            >
-                                <button
-                                    class="btn btn-primary"
-                                    @click="encryptAndStore"
-                                    v-show="!encryptSuccess"
-                                >
-                                    Store
+                            <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
+                                <button v-bind:disabled="!upload_ready" class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                    Upload
                                 </button>
                             </div>
                         </form>
@@ -73,7 +44,7 @@
 </template>
 
 <style>
-.form-floating > textarea {
+.form-floating>textarea {
     min-height: 100px !important;
 }
 
@@ -90,10 +61,7 @@
 <script>
 const enc = new TextEncoder();
 import axios from "axios";
-const apiEndpoint = [
-    import.meta.env.VITE_WEBAPI_ENDPOINT.replace(/\/$/, ""),
-    "/secret/",
-].join("");
+const apiEndpoint = import.meta.env.VITE_WEBAPI_ENDPOINT.replace(/\/$/, "")
 
 export default {
     data() {
@@ -105,8 +73,14 @@ export default {
             decryptSecretUrl: "",
 
             password: "",
-            secret: "",
             attachment: {},
+            encrypted_file: null,
+            upload_ready: false,
+            put_url: "",
+            object_key: "",
+            salt: window.crypto.getRandomValues(new Uint8Array(16)),
+            iv: window.crypto.getRandomValues(new Uint8Array(12)),
+            key: {},
         };
     },
     methods: {
@@ -131,16 +105,34 @@ export default {
                 ["encrypt", "decrypt"]
             );
         },
-        onFileChanged($event) {
+        async onFileChanged($event) {
+            this.key = await this.getKey(this.password, this.salt)
+            const key = this.key
+            const iv = this.iv
             const target = $event.target;
             const file = $event.target.files[0];
+            const that = this
+
             this.attachment = file;
             if (target && target.files) {
                 const reader = new FileReader();
-                reader.addEventListener('load', $event => {
-                    this.attachment.data = $event.target.result;
-                });
-                reader.readAsDataURL(file);
+
+                reader.onload = function (e) {
+                    var data = e.target.result
+
+                    window.crypto.subtle.encrypt({ 'name': 'AES-GCM', iv }, key, enc.encode(data))
+                        .then(encrypted => {
+                            that.encrypted_file = encrypted
+                            that.upload_ready = true
+                            alert('The encrypted data is ' + encrypted.byteLength + ' bytes long'); // encrypted is an ArrayBuffer
+                            
+                        })
+                        .catch(console.error);
+                }
+
+                if (file) {
+                    reader.readAsDataURL(file);
+                }
             }
         },
         // buffer to base64
@@ -163,58 +155,69 @@ export default {
                 this.encryptFailure = true;
                 return;
             }
-            if (this.secret.length == 0) {
-                this.encryptFailureMessage = "Your secret cannot be empty.";
+            if (!this.attachment) {
+                this.encryptFailureMessage = "Please choose a file.";
                 this.encryptFailure = true;
                 return;
             }
-
-            const salt = window.crypto.getRandomValues(new Uint8Array(16));
-            const iv = window.crypto.getRandomValues(new Uint8Array(12));
-
-            const key = await this.getKey(this.password, salt);
-            let encryptedAttachmentData
-            let encryptedAttachmentName
-            if (this.attachment) {
-                encryptedAttachmentData = await window.crypto.subtle.encrypt(
-                    {
-                        name: "AES-GCM",
-                        iv: iv,
-                    },
-                    key,
-                    enc.encode(this.attachment.data)
-                );
-                encryptedAttachmentName = await window.crypto.subtle.encrypt(
-                    {
-                        name: "AES-GCM",
-                        iv: iv,
-                    },
-                    key,
-                    enc.encode(this.attachment.name)
-                );
+            if (!this.put_url || !this.object_key) {
+                const response = await axios.get(`${apiEndpoint}/file/new`);
+                this.put_url = response.data.put_url
+                this.object_key = response.data.object_key
             }
 
-            const ciphertext = await window.crypto.subtle.encrypt(
+            // this.key = await this.getKey(this.password, this.salt);
+
+            // const encryptedAttachmentData = await window.crypto.subtle.encrypt(
+            //     {
+            //         name: "AES-GCM",
+            //         iv: this.iv,
+            //     },
+            //     this.key,
+            //     enc.encode(this.attachment.data_url)
+            // );
+            const encryptedAttachmentName = await window.crypto.subtle.encrypt(
                 {
                     name: "AES-GCM",
-                    iv: iv,
+                    iv: this.iv,
                 },
-                key,
-                enc.encode(this.secret)
+                this.key,
+                enc.encode(this.attachment.name)
             );
 
             const encryptedObj = {
-                secret: await this.bufferToBase64Async(
-                    new Uint8Array(ciphertext)
-                ),
-                salt: await this.bufferToBase64Async(salt),
-                iv: await this.bufferToBase64Async(iv),
-                attachment: this.attachment ? await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentData)) : null,
-                attachmentName: this.attachment ? await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentName)) : null,
+                salt: await this.bufferToBase64Async(this.salt),
+                iv: await this.bufferToBase64Async(this.iv),
+                file_name: await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentName)),
+                object_key: this.object_key,
             };
 
             try {
-                const response = await axios.put(apiEndpoint, {
+                const config = {
+                    transformRequest: [function (data, headers) {
+                        delete headers.put['Content-Type'];
+                        delete headers.common['Content-Type'];
+                        return data;
+                    }],
+                };
+                const response = await axios.put(this.put_url, this.encrypted_file, config);
+
+            } catch (err) {
+                console.error(err)
+                if (err.response.status == 400) {
+                    this.encryptFailure = true;
+                    this.encryptFailureMessage =
+                        "Invalid object upload.";
+                } else {
+                    this.encryptFailure = true;
+                    this.encryptFailureMessage =
+                        "An unknown error occurred, unable to upload object.";
+                }
+                return;
+            }
+
+            try {
+                const response = await axios.put(`${apiEndpoint}/secret`, {
                     secret: encryptedObj,
                 });
 

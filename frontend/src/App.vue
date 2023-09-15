@@ -5,20 +5,12 @@ import { RouterLink, RouterView } from "vue-router";
 <template>
     <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
         <!-- Navbar Brand-->
-        <router-link class="navbar-brand ps-3" :to="{ name: 'home' }"
-            >Snap Secret</router-link
-        >
+        <router-link class="navbar-brand ps-3" :to="{ name: 'home' }">Snap Secret</router-link>
 
-        <div
-            class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0"
-        >
-            <router-link class="btn btn-secondary me-2" :to="{ name: 'secret-file.new' }"
-                >New File Secret</router-link
-            >
+        <div class="d-none d-md-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0">
+            <button class="btn btn-secondary me-2" @click="newSecretFilePage">New File Secret</button>
 
-            <router-link class="btn btn-primary" :to="{ name: 'secret.new' }"
-                >New Text Secret</router-link
-            >
+            <button class="btn btn-primary" @click="newSecretPage">New Text Secret</button>
         </div>
     </nav>
 
@@ -65,3 +57,25 @@ import { RouterLink, RouterView } from "vue-router";
     }
 }
 </style>
+<script>
+export default {
+    methods: {
+        // Fix New Secret buttone not working when
+        //   you are already on the page
+        newSecretPage() {
+            if (location.pathname == "/new") {
+                location.reload();
+            } else {
+                this.$router.push("/new")
+            }
+        },
+        newSecretFilePage() {
+            if (location.pathname == "/file-new") {
+                location.reload();
+            } else {
+                this.$router.push("/file-new")
+            }
+        },
+    },
+}
+</script>

@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_lambda as lambda_,
     aws_s3 as s3,
     aws_ssm as ssm,
+    aws_iam as iam,
 )
 from constructs import Construct
 
@@ -39,6 +40,8 @@ class BackendStack(Stack):
         if dev_url := self.node.try_get_context("dev_url"):
             snapsecret_origins.append(dev_url)
 
+        snapsecret_origins = ["*"]
+
         table = dynamodb.Table(
             self,
             id="snapsecret_table",
@@ -62,7 +65,7 @@ class BackendStack(Stack):
             ],
             cors=[
                 s3.CorsRule(
-                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT],
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.DELETE],
                     allowed_origins=snapsecret_origins,
                 )
             ],
@@ -83,8 +86,17 @@ class BackendStack(Stack):
 
         # Configure Lambda permissions
         table.grant_read_write_data(backend_lambda)
-        bucket.grant_put(backend_lambda)
-        bucket.grant_read(backend_lambda)
+        backend_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                ],
+                effect=iam.Effect.ALLOW,
+                resources=[bucket.arn_for_objects("*")],
+            )
+        )
 
         # Configure API gateway with /secret and /secret/:secrets_id endpoints
         api = apigw.RestApi(
