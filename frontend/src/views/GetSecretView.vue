@@ -59,7 +59,6 @@
 </template>
 
 <style>
-@import "bootstrap-icons/font/bootstrap-icons.css";
 
 .input-group>textarea {
     padding-right: 30px !important;
