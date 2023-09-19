@@ -15,11 +15,22 @@ const router = createRouter({
       component: () => import("../views/NewSecretView.vue"),
     },
     {
+      path: "/file-new",
+      name: "secret-file.new",
+      component: () => import("../views/NewSecretFileView.vue"),
+    },
+    {
       path: "/secret/:id",
       name: "secret.get",
       component: () => import("../views/GetSecretView.vue"),
       props: true,
     },
+    {
+      path: "/404", component: () => import("../views/404.vue"),
+    },
+    {
+      path: "/:pathMatch(.*)*", component: () => import("../views/404.vue"),
+    }
   ],
 });
 

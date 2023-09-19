@@ -2,7 +2,9 @@
   "app": "python3 app.py",
   "watch": {
     "include": [
-      "**"
+      "**",
+      "../frontend/**",
+      "../src/**"
     ],
     "exclude": [
       "README.md",
@@ -10,8 +12,10 @@
       "requirements*.txt",
       "source.bat",
       "**/__init__.py",
-      "python/__pycache__",
-      "tests"
+      "**/__pycache__",
+      "tests",
+      "../frontend/node_modules",
+      "../frontend/dist"
     ]
   },
   "context": {

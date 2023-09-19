@@ -89,7 +89,7 @@ class FrontendStack(Stack):
                 ),
                 content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
                     override=True,
-                    content_security_policy=f"default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; connect-src https://{apigw_domain}/ data:",
+                    content_security_policy=f"default-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; connect-src https://{apigw_domain}/ https://s3.{backend_region}.amazonaws.com data:",
                 ),
                 frame_options=cloudfront.ResponseHeadersFrameOptions(
                     override=True,
@@ -119,6 +119,7 @@ class FrontendStack(Stack):
                 ),
                 response_headers_policy=cf_headers,
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                
             ),
             error_responses=[
                 cloudfront.ErrorResponse(
