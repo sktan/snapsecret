@@ -1,46 +1,48 @@
 <template>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-12">
-                <div class="card shadow-lg border-0 rounded-lg mt-12">
-                    <div class="card-header">
-                        <h3 class="text-center font-weight-light my-3">
-                            Create a New Secret
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div v-show="encryptSuccess" class="alert alert-success" role="alert">
-                            Your secret was successfully encrypted stored,
-                            please send this URL to your recipient. <br />
-                            <router-link :to="'/secret/' + decryptSecretId">
-                                {{ decryptSecretUrl }}
-                            </router-link>
+    <main>
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-12">
+                    <div class="card shadow-lg border-0 rounded-lg mt-12">
+                        <div class="card-header">
+                            <h3 class="text-center font-weight-light my-3">
+                                Create a New Secret
+                            </h3>
                         </div>
-                        <div v-show="encryptFailure" class="alert alert-danger" role="alert">
-                            {{ encryptFailureMessage }}
-                        </div>
+                        <div class="card-body">
+                            <div v-show="encryptSuccess" class="alert alert-success" role="alert">
+                                Your secret was successfully encrypted stored,
+                                please send this URL to your recipient. <br />
+                                <router-link :to="'/secret/' + decryptSecretId">
+                                    {{ decryptSecretUrl }}
+                                </router-link>
+                            </div>
+                            <div v-show="encryptFailure" class="alert alert-danger" role="alert">
+                                {{ encryptFailureMessage }}
+                            </div>
 
-                        <form @submit.prevent="">
-                            <div class="form-floating mb-3">
-                                <input class="form-control" id="encryption_passphrase" v-model="password" required
-                                    minlength="8" />
-                                <label for="encryption_passphrase">Encryption Passphrase</label>
-                            </div>
-                            <div class="form-floating mb-3" v-show="!encryptSuccess" required>
-                                <textarea class="form-control" name="secret" rows="5" v-model="secret"></textarea>
-                                <label for="secret">Secret</label>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
-                                    Store
-                                </button>
-                            </div>
-                        </form>
+                            <form @submit.prevent="">
+                                <div class="form-floating mb-3">
+                                    <input class="form-control" id="encryption_passphrase" v-model="password" required
+                                        minlength="8" />
+                                    <label for="encryption_passphrase">Encryption Passphrase</label>
+                                </div>
+                                <div class="form-floating mb-3" v-show="!encryptSuccess" required>
+                                    <textarea class="form-control" name="secret" rows="5" v-model="secret"></textarea>
+                                    <label for="secret">Secret</label>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
+                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                        Store
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </template>
 
 <style>

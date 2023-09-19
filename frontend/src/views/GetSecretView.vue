@@ -1,65 +1,66 @@
 <template>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-12">
-                <div class="card shadow-lg border-0 rounded-lg mt-12">
-                    <div class="card-header">
-                        <h3 class="text-center font-weight-light my-3">
-                            Receive your Secret
-                        </h3>
-                    </div>
-                    <div class="card-body">
-                        <div v-show="decryptSuccess" class="alert alert-success" role="alert">
-                            Your secret was successfully decrypted and
-                            self-destruction has taken place.
+    <main>
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-12">
+                    <div class="card shadow-lg border-0 rounded-lg mt-12">
+                        <div class="card-header">
+                            <h3 class="text-center font-weight-light my-3">
+                                Receive your Secret
+                            </h3>
                         </div>
-                        <div v-show="decryptWarning" class="alert alert-warning" role="alert">
-                            Pressing the Decrypt button will cause the secret to
-                            self-destruct and become inaccessible.
-                        </div>
-                        <div v-show="decryptFailure" class="alert alert-danger" role="alert">
-                            {{ decryptFailureMessage }}
-                        </div>
+                        <div class="card-body">
+                            <div v-show="decryptSuccess" class="alert alert-success" role="alert">
+                                Your secret was successfully decrypted and
+                                self-destruction has taken place.
+                            </div>
+                            <div v-show="decryptWarning" class="alert alert-warning" role="alert">
+                                Pressing the Decrypt button will cause the secret to
+                                self-destruct and become inaccessible.
+                            </div>
+                            <div v-show="decryptFailure" class="alert alert-danger" role="alert">
+                                {{ decryptFailureMessage }}
+                            </div>
 
-                        <form @submit.prevent="">
-                            <div class="form-floating mb-3" v-show="!decryptSuccess">
-                                <input class="form-control" id="decrpytion_passphrase" v-model="password" />
-                                <label for="decrpytion_passphrase">Decryption Passphrase</label>
-                            </div>
-                            <div v-show="decryptSuccess" class="input-group mb-3">
-                                <button type="button" v-bind:class="{
-                                    'btn-clipboard': !clipboardSuccess,
-                                    'btn-clipboard-success':
-                                        clipboardSuccess,
-                                }" v-show="!isFile" title="Copy to clipboard" @click="copyToClipboard">
-                                    <svg class="bi" width="1em" height="1em" fill="currentColor">
-                                        <use v-show="!clipboardSuccess"
-                                            xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard"></use>
-                                        <use v-show="clipboardSuccess"
-                                            xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard-check"></use>
-                                    </svg>
-                                </button>
-                                <textarea class="form-control" rows="5" v-model="secret" v-show="!isFile"
-                                    readonly></textarea>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess">
-                                    Decrypt
-                                </button>
-                                <button v-show="decryption_complete" class="btn btn-primary" @click="save">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+                            <form @submit.prevent="">
+                                <div class="form-floating mb-3" v-show="!decryptSuccess">
+                                    <input class="form-control" id="decrpytion_passphrase" v-model="password" />
+                                    <label for="decrpytion_passphrase">Decryption Passphrase</label>
+                                </div>
+                                <div v-show="decryptSuccess" class="input-group mb-3">
+                                    <button type="button" v-bind:class="{
+                                        'btn-clipboard': !clipboardSuccess,
+                                        'btn-clipboard-success':
+                                            clipboardSuccess,
+                                    }" v-show="!isFile" title="Copy to clipboard" @click="copyToClipboard">
+                                        <svg class="bi" width="1em" height="1em" fill="currentColor">
+                                            <use v-show="!clipboardSuccess"
+                                                xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard"></use>
+                                            <use v-show="clipboardSuccess"
+                                                xlink:href="~/bootstrap-icons/bootstrap-icons.svg#clipboard-check"></use>
+                                        </svg>
+                                    </button>
+                                    <textarea class="form-control" rows="5" v-model="secret" v-show="!isFile"
+                                        readonly></textarea>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
+                                    <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess">
+                                        Decrypt
+                                    </button>
+                                    <button v-show="decryption_complete" class="btn btn-primary" @click="save">
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </template>
 
 <style>
-
 .input-group>textarea {
     padding-right: 30px !important;
 }
