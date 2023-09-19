@@ -40,8 +40,6 @@ class BackendStack(Stack):
         if dev_url := self.node.try_get_context("dev_url"):
             snapsecret_origins.append(dev_url)
 
-        snapsecret_origins = ["*"]
-
         table = dynamodb.Table(
             self,
             id="snapsecret_table",

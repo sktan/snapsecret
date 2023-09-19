@@ -31,7 +31,7 @@
                                     @change="onFileChanged($event)" />
                             </div>
                             <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                <button v-bind:disabled="!upload_ready" class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
                                     Upload
                                 </button>
                             </div>
@@ -75,7 +75,6 @@ export default {
             password: "",
             attachment: {},
             encrypted_file: null,
-            upload_ready: false,
             put_url: "",
             object_key: "",
             salt: window.crypto.getRandomValues(new Uint8Array(16)),
@@ -106,33 +105,15 @@ export default {
             );
         },
         async onFileChanged($event) {
-            this.key = await this.getKey(this.password, this.salt)
-            const key = this.key
-            const iv = this.iv
-            const target = $event.target;
             const file = $event.target.files[0];
-            const that = this
-
             this.attachment = file;
-            if (target && target.files) {
-                const reader = new FileReader();
-
-                reader.onload = function (e) {
-                    var data = e.target.result
-
-                    window.crypto.subtle.encrypt({ 'name': 'AES-GCM', iv }, key, enc.encode(data))
-                        .then(encrypted => {
-                            that.encrypted_file = encrypted
-                            that.upload_ready = true
-                            alert('The encrypted data is ' + encrypted.byteLength + ' bytes long'); // encrypted is an ArrayBuffer
-                            
-                        })
-                        .catch(console.error);
-                }
-
-                if (file) {
-                    reader.readAsDataURL(file);
-                }
+            if (file.size > 50 * 1024 * 1024) {
+                this.encryptFailure = true;
+                this.encryptFailureMessage =
+                    "File size is too big. Encryption will likely fail.";
+                return
+            } else {
+                this.encryptFailure = false;
             }
         },
         // buffer to base64
@@ -166,16 +147,8 @@ export default {
                 this.object_key = response.data.object_key
             }
 
-            // this.key = await this.getKey(this.password, this.salt);
+            this.key = await this.getKey(this.password, this.salt);
 
-            // const encryptedAttachmentData = await window.crypto.subtle.encrypt(
-            //     {
-            //         name: "AES-GCM",
-            //         iv: this.iv,
-            //     },
-            //     this.key,
-            //     enc.encode(this.attachment.data_url)
-            // );
             const encryptedAttachmentName = await window.crypto.subtle.encrypt(
                 {
                     name: "AES-GCM",
@@ -193,6 +166,25 @@ export default {
             };
 
             try {
+                const reader = new FileReader();
+
+                var that = this
+
+                reader.onload = function (e) {
+                    var data = e.target.result
+
+                    window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: that.iv }, that.key, enc.encode(data))
+                        .then(encrypted => {
+                            that.encrypted_file = encrypted
+                        })
+                        .catch(console.error);
+                }
+
+
+                reader.readAsDataURL(this.attachment);
+
+
+
                 const config = {
                     transformRequest: [function (data, headers) {
                         delete headers.put['Content-Type'];
@@ -200,7 +192,13 @@ export default {
                         return data;
                     }],
                 };
-                const response = await axios.put(this.put_url, this.encrypted_file, config);
+
+                while (!this.encrypted_file) {
+                    await new Promise(r => setTimeout(r, 100));
+
+                }
+
+                await axios.put(this.put_url, this.encrypted_file, config);
 
             } catch (err) {
                 console.error(err)

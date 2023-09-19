@@ -15,10 +15,10 @@ import 'bootstrap';
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link btn btn-secondary me-2 ms-2 mt-1 mb-1" @click="newSecretFilePage">New File Secret</a>
+                        <a class="nav-link btn btn-secondary me-2 ms-2 mt-1 mb-1 text-light" @click="newSecretFilePage">New File Secret</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link btn btn-primary me-2 ms-2 mt-1 mb-1" @click="newSecretPage">New Text Secret</a>
+                        <a class="nav-link btn btn-primary me-2 ms-2 mt-1 mb-1 text-light" @click="newSecretPage">New Text Secret</a>
                     </li>
                 </ul>
             </div>
