@@ -1,19 +1,20 @@
 import aws_cdk as cdk
 from aws_cdk import (
-    # Duration,
+    Duration,
+    Fn,
     Stack,
-    aws_dynamodb as dynamodb,
     aws_apigateway as apigw,
-    aws_ssm as ssm,
-    aws_lambda as lambda_,
     aws_certificatemanager as acm,
+    aws_dynamodb as dynamodb,
+    aws_lambda as lambda_,
+    aws_s3 as s3,
+    aws_ssm as ssm,
+    aws_iam as iam,
 )
 from constructs import Construct
 
 
 class BackendStack(Stack):
-    backend_domain = None
-
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -50,6 +51,24 @@ class BackendStack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
         )
 
+        bucket = s3.Bucket(
+            self,
+            "secret_file_bucket",
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    expiration=Duration.days(1),
+                    abort_incomplete_multipart_upload_after=Duration.days(1),
+                )
+            ],
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.DELETE],
+                    allowed_origins=snapsecret_origins,
+                )
+            ],
+        )
+
         backend_lambda = lambda_.Function(
             self,
             id="snapsecret_lambda",
@@ -58,12 +77,24 @@ class BackendStack(Stack):
             handler="snapsecret.handler",
             environment={
                 "SECRETS_TABLE": table.table_name,
+                "SECRETS_BUCKET": bucket.bucket_name,
                 "CORS_ORIGINS": ",".join(snapsecret_origins),
             },
         )
 
         # Configure Lambda permissions
         table.grant_read_write_data(backend_lambda)
+        backend_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                ],
+                effect=iam.Effect.ALLOW,
+                resources=[bucket.arn_for_objects("*")],
+            )
+        )
 
         # Configure API gateway with /secret and /secret/:secrets_id endpoints
         api = apigw.RestApi(
@@ -75,7 +106,7 @@ class BackendStack(Stack):
             ),
         )
         if api_domain:
-            api_alias = api.add_domain_name(
+            api.add_domain_name(
                 id="snapsecret_api_domain",
                 domain_name=api_domain,
                 certificate=acm.Certificate.from_certificate_arn(
@@ -85,20 +116,20 @@ class BackendStack(Stack):
                 ),
                 security_policy=apigw.SecurityPolicy.TLS_1_2,
             )
-            self.backend_domain = api_alias.domain_name
 
-            cdk.CfnOutput(
-                self,
-                id="snapsecret_api_alias_domain",
-                value=api_alias.domain_name_alias_domain_name,
-            )
-            cdk.CfnOutput(
-                self,
-                id="snapsecret_api_alias_url",
-                value=f"https://{api_alias.domain_name}/",
-            )
-        else:
-            self.backend_domain = api.domain_name
+        cdk.CfnOutput(
+            self,
+            id="snapsecret_api_domain",
+            value=api_domain
+            if api_domain is not None
+            else Fn.split("/", api.url, 4)[2],
+        )
+
+        cdk.CfnOutput(
+            self,
+            id="snapsecret_api_url",
+            value=api.url if not api_domain else f"https://{api_domain}",
+        )
 
         secret_ep = api.root.add_resource("secret")
         secret_ep.add_method("PUT", apigw.LambdaIntegration(backend_lambda))
@@ -106,11 +137,25 @@ class BackendStack(Stack):
         secret_get_ep = secret_ep.add_resource("{secret_id}")
         secret_get_ep.add_method("GET", apigw.LambdaIntegration(backend_lambda))
 
+        file_ep = api.root.add_resource("file")
+        file_ep_new = file_ep.add_resource("new")
+        file_ep_new.add_method("GET", apigw.LambdaIntegration(backend_lambda))
+
         # store the API endpoint into a parameter store value
         ssm.CfnParameter(
             self,
-            id="snapsecret_api_param",
-            name=paramstore_path,
+            id="snapsecret_api_url_param",
+            name=f"{paramstore_path}/url",
             type="String",
             value=api.url if not api_domain else f"https://{api_domain}",
+        )
+
+        ssm.CfnParameter(
+            self,
+            id="snapsecret_api_domain_param",
+            name=f"{paramstore_path}/domain",
+            type="String",
+            value=api_domain
+            if api_domain is not None
+            else Fn.split("/", api.url, 4)[2],
         )

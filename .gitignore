@@ -232,3 +232,5 @@ dist
 
 # TernJS port file
 .tern-port
+.vscode
+cdk/cdk.context.json
