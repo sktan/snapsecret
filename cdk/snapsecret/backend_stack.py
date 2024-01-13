@@ -63,7 +63,11 @@ class BackendStack(Stack):
             ],
             cors=[
                 s3.CorsRule(
-                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.DELETE],
+                    allowed_methods=[
+                        s3.HttpMethods.GET,
+                        s3.HttpMethods.PUT,
+                        s3.HttpMethods.DELETE,
+                    ],
                     allowed_origins=snapsecret_origins,
                 )
             ],
@@ -72,7 +76,7 @@ class BackendStack(Stack):
         backend_lambda = lambda_.Function(
             self,
             id="snapsecret_lambda",
-            runtime=lambda_.Runtime.PYTHON_3_9,
+            runtime=lambda_.Runtime.PYTHON_3_11,
             code=lambda_.Code.from_asset("../src"),
             handler="snapsecret.handler",
             environment={

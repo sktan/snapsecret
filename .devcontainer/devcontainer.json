@@ -27,7 +27,7 @@
     8080
   ],
   "mounts": [
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws/,target=/root/.aws,type=bind,consistency=cached"
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.aws/,target=/home/vscode/.aws,type=bind,consistency=cached"
   ],
   "remoteEnv": {
     "AWS_PROFILE": "sktansandbox"
