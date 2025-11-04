@@ -8,19 +8,19 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },
   "dependencies": {
-    "axios": "^1.7.4",
-    "bootstrap": "^5.3.2",
-    "bootstrap-icons": "^1.11.3",
-    "vue": "^3.2.33",
-    "vue-router": "^4.2.5"
+    "axios": "^1.13.1",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "vue": "^3.5.22",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
-    "@rushstack/eslint-patch": "^1.6.1",
-    "@vitejs/plugin-vue": "^2.3.4",
-    "@vue/eslint-config-prettier": "^7.1.0",
-    "eslint": "^8.56.0",
-    "eslint-plugin-vue": "^8.7.1",
-    "prettier": "^2.8.8",
-    "vite": "^2.9.16"
+    "@rushstack/eslint-patch": "^1.14.1",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-vue": "^10.5.1",
+    "prettier": "^3.6.2",
+    "vite": "^7.1.12"
   }
 }
