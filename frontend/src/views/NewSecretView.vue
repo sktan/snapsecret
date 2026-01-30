@@ -32,7 +32,7 @@
                                     <label for="secret">Secret</label>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess" :disabled="isDisabled">
                                         Store
                                     </button>
                                 </div>
@@ -58,6 +58,11 @@
         align-items: center;
     }
 }
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
 </style>
 
 <script>
@@ -79,6 +84,8 @@ export default {
 
             password: "",
             secret: "",
+
+            isDisabled: false,
         };
     },
     methods: {
@@ -129,6 +136,8 @@ export default {
                 return;
             }
 
+            this.isDisabled = true;
+
             const salt = window.crypto.getRandomValues(new Uint8Array(16));
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
@@ -174,8 +183,11 @@ export default {
                     this.encryptFailureMessage =
                         "An unknown error occurred, please try again soon.";
                 }
+                this.isDisabled = false;
                 return;
             }
+
+            this.isDisabled = false;
         },
     },
 };

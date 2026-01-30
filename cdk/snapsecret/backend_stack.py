@@ -31,11 +31,12 @@ class BackendStack(Stack):
 
         # if a domain CDK context couldn't be resolved, allow all origins for CORS
         # This isn't secure, but it allows for testing via localhost / cloudfront
-        snapsecret_origins = list()
-        if domain := self.node.try_get_context("frontend_domain"):
-            snapsecret_origins.append(f"https://{domain}")
-        else:
-            snapsecret_origins = apigw.Cors.ALL_ORIGINS
+        # snapsecret_origins = list()
+        snapsecret_origins = apigw.Cors.ALL_ORIGINS
+        # if domain := self.node.try_get_context("frontend_domain"):
+        #     snapsecret_origins.append(f"https://{domain}")
+        # else:
+        #     snapsecret_origins = apigw.Cors.ALL_ORIGINS
 
         if dev_url := self.node.try_get_context("dev_url"):
             snapsecret_origins.append(dev_url)

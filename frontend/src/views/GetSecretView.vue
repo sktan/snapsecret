@@ -44,7 +44,7 @@
                                         readonly></textarea>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                    <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess">
+                                    <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess" :disabled="isDisabled">
                                         Decrypt
                                     </button>
                                     <button v-show="decryption_complete" class="btn btn-primary" @click="save">
@@ -105,6 +105,11 @@
         align-items: center;
     }
 }
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
 </style>
 
 <script>
@@ -144,6 +149,8 @@ export default {
                 salt: [],
                 iv: [],
             },
+
+            isDisabled: false,
         };
     },
     methods: {
@@ -217,6 +224,8 @@ export default {
             link.click();
         },
         async fetchAndDecrypt() {
+            this.isDisabled = true;
+
             if (!this.encryptedObj || this.encryptedObj.secret.length == 0) {
                 try {
                     const response = await axios.get(apiEndpoint + this.id);
@@ -244,6 +253,7 @@ export default {
                         this.decryptFailureMessage =
                             "An unknown error occurred, please try again soon.";
                     }
+                    this.isDisabled = false;
                     return;
                 }
             }
@@ -304,6 +314,8 @@ export default {
                         "An incorrect decryption passphrase was provided, please check that it is correct.";
                 }
             }
+
+            this.isDisabled = false;
         },
     },
 };

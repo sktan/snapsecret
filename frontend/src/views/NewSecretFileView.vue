@@ -32,7 +32,7 @@
                                         @change="onFileChanged($event)" />
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess" :disabled="isDisabled">
                                         Upload
                                     </button>
                                 </div>
@@ -58,6 +58,11 @@
         align-items: center;
     }
 }
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
 </style>
 
 <script>
@@ -82,6 +87,8 @@ export default {
             salt: window.crypto.getRandomValues(new Uint8Array(16)),
             iv: window.crypto.getRandomValues(new Uint8Array(12)),
             key: {},
+
+            isDisabled: false,
         };
     },
     methods: {
@@ -131,7 +138,7 @@ export default {
                 fileReader.readAsDataURL(blob);
             });
         },
-        async encryptAndStore() {
+        async encryptAndStore() {            
             if (this.password.length < 8) {
                 this.encryptFailureMessage =
                     "Your encryption passphrase must be at least 8 characters long.";
@@ -143,6 +150,9 @@ export default {
                 this.encryptFailure = true;
                 return;
             }
+
+            this.isDisabled = true;
+
             if (!this.put_url || !this.object_key) {
                 const response = await axios.get(`${apiEndpoint}/file/new`);
                 this.put_url = response.data.put_url
@@ -213,6 +223,7 @@ export default {
                     this.encryptFailureMessage =
                         "An unknown error occurred, unable to upload object.";
                 }
+                this.isDisabled = false;
                 return;
             }
 
@@ -239,8 +250,11 @@ export default {
                     this.encryptFailureMessage =
                         "An unknown error occurred, please try again soon.";
                 }
+                this.isDisabled = false;
                 return;
             }
+
+            this.isDisabled = false;
         },
     },
 };
