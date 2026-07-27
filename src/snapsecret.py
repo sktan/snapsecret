@@ -7,6 +7,7 @@ import secrets
 import boto3
 import logging
 
+from botocore.client import Config
 from botocore.exceptions import ClientError
 
 # Enables type hinting but only during development
@@ -232,10 +233,7 @@ def get_s3_presigned_url(method: str, object_key: str) -> str:
         "DELETE": "delete_object",
     }
 
-    s3_client = boto3.client(
-        "s3",
-        endpoint_url=f"https://s3.{os.environ.get('AWS_REGION')}.amazonaws.com",
-    )
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
     try:
         response = s3_client.generate_presigned_url(
             ClientMethod=client_methods[method],

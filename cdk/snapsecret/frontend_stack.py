@@ -37,7 +37,9 @@ class FrontendStack(Stack):
 
         apigw_url = ""
         try:
-            apigw_url = ssm_client.get_parameter(Name=f"{paramstore_path}/url")["Parameter"]["Value"]
+            apigw_url = ssm_client.get_parameter(Name=f"{paramstore_path}/url")[
+                "Parameter"
+            ]["Value"]
         except Exception:
             # Set it to localhost temporarily, as the param hasn't been created until the backend
             # stack has been deployed. This is to fix the initial `cdk bootstrap` issue where
@@ -46,7 +48,9 @@ class FrontendStack(Stack):
 
         apigw_domain = ""
         try:
-            apigw_domain = ssm_client.get_parameter(Name=f"{paramstore_path}/domain")["Parameter"]["Value"]
+            apigw_domain = ssm_client.get_parameter(Name=f"{paramstore_path}/domain")[
+                "Parameter"
+            ]["Value"]
         except Exception:
             apigw_domain = "localhost"
 
@@ -89,7 +93,7 @@ class FrontendStack(Stack):
                 ),
                 content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
                     override=True,
-                    content_security_policy=f"default-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; connect-src https://{apigw_domain}/ https://s3.{backend_region}.amazonaws.com data:",
+                    content_security_policy=f"default-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; connect-src https://{apigw_domain}/ https://*.s3.amazonaws.com data:",
                 ),
                 frame_options=cloudfront.ResponseHeadersFrameOptions(
                     override=True,
@@ -119,7 +123,6 @@ class FrontendStack(Stack):
                 ),
                 response_headers_policy=cf_headers,
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                
             ),
             error_responses=[
                 cloudfront.ErrorResponse(
@@ -153,8 +156,7 @@ class FrontendStack(Stack):
                 s3_deployment.Source.asset(
                     "../frontend",
                     bundling=cdk.BundlingOptions(
-                        # Using Node v14 as AWS doesn't support Node v16 yet
-                        image=lambda_.Runtime.NODEJS_18_X.bundling_image,
+                        image=lambda_.Runtime.NODEJS_24_X.bundling_image,
                         command=[
                             "bash",
                             "-xc",

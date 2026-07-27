@@ -76,7 +76,7 @@ class BackendStack(Stack):
         backend_lambda = lambda_.Function(
             self,
             id="snapsecret_lambda",
-            runtime=lambda_.Runtime.PYTHON_3_11,
+            runtime=lambda_.Runtime.PYTHON_3_14,
             code=lambda_.Code.from_asset("../src"),
             handler="snapsecret.handler",
             environment={
@@ -124,9 +124,9 @@ class BackendStack(Stack):
         cdk.CfnOutput(
             self,
             id="snapsecret_api_domain",
-            value=api_domain
-            if api_domain is not None
-            else Fn.split("/", api.url, 4)[2],
+            value=(
+                api_domain if api_domain is not None else Fn.split("/", api.url, 4)[2]
+            ),
         )
 
         cdk.CfnOutput(
@@ -159,7 +159,7 @@ class BackendStack(Stack):
             id="snapsecret_api_domain_param",
             name=f"{paramstore_path}/domain",
             type="String",
-            value=api_domain
-            if api_domain is not None
-            else Fn.split("/", api.url, 4)[2],
+            value=(
+                api_domain if api_domain is not None else Fn.split("/", api.url, 4)[2]
+            ),
         )

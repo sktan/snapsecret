@@ -189,8 +189,7 @@ export default {
 
                 const config = {
                     transformRequest: [function (data, headers) {
-                        delete headers.put['Content-Type'];
-                        delete headers.common['Content-Type'];
+                        delete headers['Content-Type'];
                         return data;
                     }],
                 };
@@ -204,7 +203,7 @@ export default {
 
             } catch (err) {
                 console.error(err)
-                if (err.response.status == 400) {
+                if (err.response && err.response.status == 400) {
                     this.encryptFailure = true;
                     this.encryptFailureMessage =
                         "Invalid object upload.";
@@ -230,7 +229,7 @@ export default {
                 this.encryptSuccess = true;
                 this.encryptFailure = false;
             } catch (err) {
-                if (err.response.status == 400) {
+                if (err.response && err.response.status == 400) {
                     this.encryptFailure = true;
                     this.encryptFailureMessage =
                         "Invalid data was sent to the API, please change your input and try again.";
