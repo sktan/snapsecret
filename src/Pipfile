@@ -8,6 +8,8 @@ name = "pypi"
 [dev-packages]
 boto3 = "*"
 boto3-stubs = {extras = ["dynamodb"], version = "*"}
+pytest = "*"
+moto = {extras = ["dynamodb"], version = "*"}
 
 [requires]
 python_version = "3.9"

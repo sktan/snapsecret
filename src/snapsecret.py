@@ -107,15 +107,15 @@ def retrieve_secret_value(secret_id: str) -> str:
     dynamodb: DynamoDBServiceResource = boto3.resource("dynamodb")
     table = dynamodb.Table(os.environ.get("SECRETS_TABLE"))
 
-    response = table.get_item(Key={"secret_id": secret_id})
+    response = table.delete_item(
+        Key={"secret_id": secret_id},
+        ReturnValues="ALL_OLD",
+    )
 
-    if "Item" not in response:
+    item = response.get("Attributes")
+
+    if item is None:
         return None
-
-    item = response["Item"]
-
-    # delete item since it's supposed to be a OTA
-    table.delete_item(Key={"secret_id": secret_id})
 
     if item["expires_at"] < get_unix_timestamp():
         return None
