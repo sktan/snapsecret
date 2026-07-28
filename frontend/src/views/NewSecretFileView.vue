@@ -31,8 +31,13 @@
                                     <input type="file" class="form-control" name="attachment" required
                                         @change="onFileChanged($event)" />
                                 </div>
+                                <div class="mb-3" v-show="uploading">
+                                    <label class="form-label">{{ progressPhase }}</label>
+                                    <progress class="w-100" :value="progressPercent" max="100"></progress>
+                                </div>
                                 <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess">
+                                    <button class="btn btn-primary" @click="encryptAndStore" v-show="!encryptSuccess"
+                                        :disabled="!fileValid || uploading">
                                         Upload
                                     </button>
                                 </div>
@@ -63,7 +68,10 @@
 <script>
 const enc = new TextEncoder();
 import axios from "axios";
+import { CHUNK_SIZE, buildChunkIv, getKey } from "@/utils/fileCrypto";
 const apiEndpoint = import.meta.env.VITE_WEBAPI_ENDPOINT.replace(/\/$/, "")
+
+const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024; // 1 GiB
 
 export default {
     data() {
@@ -75,8 +83,11 @@ export default {
             decryptSecretUrl: "",
 
             password: "",
-            attachment: {},
-            encrypted_file: null,
+            attachment: null,
+            fileValid: false,
+            uploading: false,
+            progressPercent: 0,
+            progressPhase: "",
             put_url: "",
             object_key: "",
             salt: window.crypto.getRandomValues(new Uint8Array(16)),
@@ -85,37 +96,18 @@ export default {
         };
     },
     methods: {
-        async getKey(passphrase, salt) {
-            const keyMaterial = await window.crypto.subtle.importKey(
-                "raw",
-                enc.encode(passphrase),
-                { name: "PBKDF2" },
-                false,
-                ["deriveBits", "deriveKey"]
-            );
-            return window.crypto.subtle.deriveKey(
-                {
-                    name: "PBKDF2",
-                    salt: salt,
-                    iterations: 100000,
-                    hash: "SHA-256",
-                },
-                keyMaterial,
-                { name: "AES-GCM", length: 256 },
-                true,
-                ["encrypt", "decrypt"]
-            );
-        },
         async onFileChanged($event) {
             const file = $event.target.files[0];
             this.attachment = file;
-            if (file.size > 50 * 1024 * 1024) {
+            if (file.size > MAX_FILE_SIZE_BYTES) {
                 this.encryptFailure = true;
                 this.encryptFailureMessage =
-                    "File size is too big. Encryption will likely fail.";
+                    "File size is too big. Maximum supported file size is 1GB.";
+                this.fileValid = false;
                 return
             } else {
                 this.encryptFailure = false;
+                this.fileValid = true;
             }
         },
         // buffer to base64
@@ -131,6 +123,28 @@ export default {
                 fileReader.readAsDataURL(blob);
             });
         },
+        async encryptFileInChunks(fileIvPrefix) {
+            const file = this.attachment;
+            const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+            const parts = [];
+
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunkBuf = await file.slice(start, end).arrayBuffer();
+
+                const encChunk = await window.crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv: buildChunkIv(fileIvPrefix, i), tagLength: 128 },
+                    this.key,
+                    chunkBuf
+                );
+
+                parts.push(new Uint8Array(encChunk));
+                this.progressPercent = Math.round(((i + 1) / totalChunks) * 100);
+            }
+
+            return new Blob(parts, { type: "application/octet-stream" });
+        },
         async encryptAndStore() {
             if (this.password.length < 8) {
                 this.encryptFailureMessage =
@@ -138,9 +152,17 @@ export default {
                 this.encryptFailure = true;
                 return;
             }
-            if (!this.attachment) {
-                this.encryptFailureMessage = "Please choose a file.";
+            if (!this.attachment || !this.fileValid) {
+                this.encryptFailureMessage = this.attachment
+                    ? "File size is too big. Maximum supported file size is 1GB."
+                    : "Please choose a file.";
                 this.encryptFailure = true;
+                return;
+            }
+            if (this.attachment.size > MAX_FILE_SIZE_BYTES) {
+                this.encryptFailureMessage = "File size is too big. Maximum supported file size is 1GB.";
+                this.encryptFailure = true;
+                this.fileValid = false;
                 return;
             }
             if (!this.put_url || !this.object_key) {
@@ -149,7 +171,7 @@ export default {
                 this.object_key = response.data.object_key
             }
 
-            this.key = await this.getKey(this.password, this.salt);
+            this.key = await getKey(this.password, this.salt);
 
             const encryptedAttachmentName = await window.crypto.subtle.encrypt(
                 {
@@ -160,46 +182,37 @@ export default {
                 enc.encode(this.attachment.name)
             );
 
+            const fileIvPrefix = window.crypto.getRandomValues(new Uint8Array(8));
+
             const encryptedObj = {
                 salt: await this.bufferToBase64Async(this.salt),
                 iv: await this.bufferToBase64Async(this.iv),
                 file_name: await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentName)),
+                file_iv_prefix: await this.bufferToBase64Async(fileIvPrefix),
                 object_key: this.object_key,
             };
 
+            this.uploading = true;
+            this.progressPercent = 0;
+            this.progressPhase = "Encrypting…";
+
             try {
-                const reader = new FileReader();
+                const encryptedBlob = await this.encryptFileInChunks(fileIvPrefix);
 
-                var that = this
-
-                reader.onload = function (e) {
-                    var data = e.target.result
-
-                    window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: that.iv }, that.key, enc.encode(data))
-                        .then(encrypted => {
-                            that.encrypted_file = encrypted
-                        })
-                        .catch(console.error);
-                }
-
-
-                reader.readAsDataURL(this.attachment);
-
-
+                this.progressPhase = "Uploading…";
+                this.progressPercent = 0;
 
                 const config = {
                     transformRequest: [function (data, headers) {
                         delete headers['Content-Type'];
                         return data;
                     }],
+                    onUploadProgress: (e) => {
+                        this.progressPercent = Math.round((e.loaded / e.total) * 100);
+                    },
                 };
 
-                while (!this.encrypted_file) {
-                    await new Promise(r => setTimeout(r, 100));
-
-                }
-
-                await axios.put(this.put_url, this.encrypted_file, config);
+                await axios.put(this.put_url, encryptedBlob, config);
 
             } catch (err) {
                 console.error(err)
@@ -212,6 +225,7 @@ export default {
                     this.encryptFailureMessage =
                         "An unknown error occurred, unable to upload object.";
                 }
+                this.uploading = false;
                 return;
             }
 
@@ -228,6 +242,7 @@ export default {
                 ].join("/");
                 this.encryptSuccess = true;
                 this.encryptFailure = false;
+                this.uploading = false;
             } catch (err) {
                 if (err.response && err.response.status == 400) {
                     this.encryptFailure = true;
@@ -238,6 +253,7 @@ export default {
                     this.encryptFailureMessage =
                         "An unknown error occurred, please try again soon.";
                 }
+                this.uploading = false;
                 return;
             }
         },

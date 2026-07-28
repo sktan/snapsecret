@@ -43,8 +43,13 @@
                                     <textarea class="form-control" rows="5" v-model="secret" v-show="!isFile"
                                         readonly></textarea>
                                 </div>
+                                <div class="mb-3" v-show="downloading">
+                                    <label class="form-label">Decrypting…</label>
+                                    <progress class="w-100" :value="progressPercent" max="100"></progress>
+                                </div>
                                 <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
-                                    <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess">
+                                    <button class="btn btn-primary" @click="fetchAndDecrypt" v-show="!decryptSuccess"
+                                        :disabled="downloading">
                                         Decrypt
                                     </button>
                                     <button v-show="decryption_complete" class="btn btn-primary" @click="save">
@@ -108,13 +113,36 @@
 </style>
 
 <script>
-const enc = new TextEncoder();
 const dec = new TextDecoder();
 import axios from "axios";
+import { CHUNK_SIZE, GCM_TAG_BYTES, buildChunkIv, getKey } from "@/utils/fileCrypto";
 const apiEndpoint = [
     import.meta.env.VITE_WEBAPI_ENDPOINT.replace(/\/$/, ""),
     "/secret/",
 ].join("");
+
+const ENCRYPTED_CHUNK_SIZE = CHUNK_SIZE + GCM_TAG_BYTES;
+
+// Pulls exactly n bytes off the front of a queue of Uint8Array pieces,
+// splitting the last piece as needed. Mutates `pieces` in place.
+function takeBytes(pieces, n) {
+    const out = new Uint8Array(n);
+    let offset = 0;
+    while (offset < n) {
+        const piece = pieces[0];
+        const remaining = n - offset;
+        if (piece.length <= remaining) {
+            out.set(piece, offset);
+            offset += piece.length;
+            pieces.shift();
+        } else {
+            out.set(piece.subarray(0, remaining), offset);
+            pieces[0] = piece.subarray(remaining);
+            offset += remaining;
+        }
+    }
+    return out;
+}
 
 export default {
     props: ["id"],
@@ -127,6 +155,8 @@ export default {
             decryptFailureMessage: "",
             clipboardSuccess: false,
             isFile: false,
+            downloading: false,
+            progressPercent: 0,
 
             password: "",
             secret: null,
@@ -143,6 +173,7 @@ export default {
                 secret: [],
                 salt: [],
                 iv: [],
+                file_iv_prefix: [],
             },
         };
     },
@@ -168,27 +199,6 @@ export default {
                 alert("Failed to copy text: " + err);
             }
         },
-        async getKey(passphrase, salt) {
-            const keyMaterial = await window.crypto.subtle.importKey(
-                "raw",
-                enc.encode(passphrase),
-                { name: "PBKDF2" },
-                false,
-                ["deriveBits", "deriveKey"]
-            );
-            return window.crypto.subtle.deriveKey(
-                {
-                    name: "PBKDF2",
-                    salt: salt,
-                    iterations: 100000,
-                    hash: "SHA-256",
-                },
-                keyMaterial,
-                { name: "AES-GCM", length: 256 },
-                true,
-                ["encrypt", "decrypt"]
-            );
-        },
         // base64 to buffer
         base64ToBufferAsync(base64) {
             var dataUrl = "data:application/octet-binary;base64," + base64;
@@ -201,20 +211,63 @@ export default {
                     });
             });
         },
-        urlToBufferAsync(url) {
-            return new Promise(function (resolve) {
-                fetch(url)
-                    .then((res) => res.arrayBuffer())
-                    .then((buffer) => {
-                        resolve(new Uint8Array(buffer));
-                    });
-            });
+        // Streams the encrypted file from `url`, decrypting it chunk by chunk
+        // so peak memory stays bounded instead of buffering the whole file.
+        async streamDecryptFileToBlob(url, key, fileIvPrefix) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: ${response.status}`);
+            }
+            const contentLength = Number(response.headers.get("content-length")) || 0;
+            const reader = response.body.getReader();
+
+            const pieces = [];
+            let queuedLength = 0;
+            let received = 0;
+            let chunkIndex = 0;
+            const plaintextParts = [];
+
+            const decryptAndPush = async (n) => {
+                const bytes = takeBytes(pieces, n);
+                queuedLength -= n;
+                const plain = await window.crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: buildChunkIv(fileIvPrefix, chunkIndex++), tagLength: 128 },
+                    key,
+                    bytes
+                );
+                plaintextParts.push(new Uint8Array(plain));
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (value) {
+                    pieces.push(value);
+                    queuedLength += value.length;
+                    received += value.length;
+                    if (contentLength) {
+                        this.progressPercent = Math.round((received / contentLength) * 100);
+                    }
+                }
+                while (queuedLength >= ENCRYPTED_CHUNK_SIZE) {
+                    await decryptAndPush(ENCRYPTED_CHUNK_SIZE);
+                }
+                if (done) break;
+            }
+
+            if (queuedLength > 0) {
+                await decryptAndPush(queuedLength);
+            }
+
+            return new Blob(plaintextParts);
         },
         save() {
             const link = document.createElement("a");
             link.href = this.file_data;
             link.download = this.file_name;
             link.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(this.file_data);
+            }, 1000);
         },
         async fetchAndDecrypt() {
             if (!this.encryptedObj || this.encryptedObj.secret.length == 0) {
@@ -229,6 +282,7 @@ export default {
                     if (response.data.secret.file_name !== undefined) {
                         this.get_url = response.data.secret.get_url;
                         this.encryptedObj.file_name = response.data.secret["file_name"];
+                        this.encryptedObj.file_iv_prefix = response.data.secret["file_iv_prefix"];
                         this.delete_url = response.data.secret.delete_url;
                         this.isFile = true;
                     }
@@ -251,9 +305,11 @@ export default {
             const salt = await this.base64ToBufferAsync(this.encryptedObj.salt);
             const iv = await this.base64ToBufferAsync(this.encryptedObj.iv);
 
-            const key = await this.getKey(this.password, salt);
+            const key = await getKey(this.password, salt);
 
             if (this.isFile) {
+                this.downloading = true;
+                this.progressPercent = 0;
                 try {
                     let decryptedFileName = await window.crypto.subtle.decrypt(
                         {
@@ -264,16 +320,11 @@ export default {
                         await this.base64ToBufferAsync(this.encryptedObj.file_name)
                     );
 
-                    let decryptedFileData = await window.crypto.subtle.decrypt(
-                        {
-                            name: "AES-GCM",
-                            iv: iv,
-                        },
-                        key,
-                        await this.urlToBufferAsync(this.get_url),
-                    );
+                    const fileIvPrefix = await this.base64ToBufferAsync(this.encryptedObj.file_iv_prefix);
+                    const decryptedBlob = await this.streamDecryptFileToBlob(this.get_url, key, fileIvPrefix);
+
                     axios.delete(this.delete_url)
-                    this.file_data = dec.decode(decryptedFileData);
+                    this.file_data = URL.createObjectURL(decryptedBlob);
                     this.decryption_complete = true;
                     this.file_name = dec.decode(decryptedFileName);
                     this.decryptFailure = false;
@@ -283,6 +334,8 @@ export default {
                     this.decryptFailure = true;
                     this.decryptFailureMessage =
                         "An incorrect decryption passphrase was provided, please check that it is correct.";
+                } finally {
+                    this.downloading = false;
                 }
             } else {
                 try {

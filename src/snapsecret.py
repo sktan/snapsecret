@@ -202,7 +202,11 @@ def put_secret(event: dict) -> dict:
             secret_value["object_key"].replace("-", "").replace("_", "").isalnum()
             and is_base64(secret_value["iv"])
             and is_base64(secret_value["salt"])
-            and is_base64(secret_value["file_name"]),
+            and is_base64(secret_value["file_name"])
+            and (
+                "file_iv_prefix" not in secret_value
+                or is_base64(secret_value["file_iv_prefix"])
+            )
         )
     ):
         return build_response(
@@ -225,7 +229,7 @@ def get_new_file(event: dict) -> dict:
 
 def get_s3_presigned_url(method: str, object_key: str) -> str:
     bucket = os.environ.get("SECRETS_BUCKET")
-    expiration = 3600
+    expiration = 4 * 3600
 
     client_methods = {
         "PUT": "put_object",
