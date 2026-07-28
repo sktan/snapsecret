@@ -7,6 +7,7 @@ const enc = new TextEncoder();
 
 export const CHUNK_SIZE = 16 * 1024 * 1024; // 16 MiB
 export const GCM_TAG_BYTES = 16; // WebCrypto AES-GCM default 128-bit tag
+export const PBKDF2_ITERATIONS = 600000; // OWASP-recommended floor for PBKDF2-HMAC-SHA256
 
 // chunkIv = fileIvPrefix (8 bytes) || big-endian uint32 chunk index (4 bytes)
 // Never stored: both sides derive it from fileIvPrefix + loop counter.
@@ -29,7 +30,7 @@ export async function getKey(passphrase, salt) {
         {
             name: "PBKDF2",
             salt: salt,
-            iterations: 100000,
+            iterations: PBKDF2_ITERATIONS,
             hash: "SHA-256",
         },
         keyMaterial,

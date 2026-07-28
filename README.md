@@ -42,7 +42,7 @@ has been intercepted by another party.
 All encryption and decryption is done locally on the users browser with the following configuration:
 
 - AES-GCM with a key length of 256
-- A salted (16 bytes) PBKDF2 key derived from the user provided passphrase with 100,000 iterations (SHA-256)
+- A salted (16 bytes) PBKDF2 key derived from the user provided passphrase with 600,000 iterations (SHA-256)
 - An IV size of 12 bytes
 
 ## User Privacy

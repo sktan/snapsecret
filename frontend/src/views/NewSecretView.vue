@@ -63,6 +63,7 @@
 <script>
 const enc = new TextEncoder();
 import axios from "axios";
+import { getKey } from "@/utils/fileCrypto";
 const apiEndpoint = [
     import.meta.env.VITE_WEBAPI_ENDPOINT.replace(/\/$/, ""),
     "/secret/",
@@ -82,27 +83,6 @@ export default {
         };
     },
     methods: {
-        async getKey(passphrase, salt) {
-            const keyMaterial = await window.crypto.subtle.importKey(
-                "raw",
-                enc.encode(passphrase),
-                { name: "PBKDF2" },
-                false,
-                ["deriveBits", "deriveKey"]
-            );
-            return window.crypto.subtle.deriveKey(
-                {
-                    name: "PBKDF2",
-                    salt: salt,
-                    iterations: 100000,
-                    hash: "SHA-256",
-                },
-                keyMaterial,
-                { name: "AES-GCM", length: 256 },
-                true,
-                ["encrypt", "decrypt"]
-            );
-        },
         // buffer to base64
         async bufferToBase64Async(buffer) {
             var blob = new Blob([buffer], { type: "application/octet-binary" });
@@ -132,7 +112,7 @@ export default {
             const salt = window.crypto.getRandomValues(new Uint8Array(16));
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-            const key = await this.getKey(this.password, salt);
+            const key = await getKey(this.password, salt);
 
             const ciphertext = await window.crypto.subtle.encrypt(
                 {
