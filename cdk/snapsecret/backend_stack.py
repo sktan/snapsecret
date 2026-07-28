@@ -65,7 +65,7 @@ class BackendStack(Stack):
                 s3.CorsRule(
                     allowed_methods=[
                         s3.HttpMethods.GET,
-                        s3.HttpMethods.PUT,
+                        s3.HttpMethods.POST,
                         s3.HttpMethods.DELETE,
                     ],
                     allowed_origins=snapsecret_origins,
@@ -107,6 +107,10 @@ class BackendStack(Stack):
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=snapsecret_origins,
                 allow_methods=["GET", "PUT"],
+            ),
+            deploy_options=apigw.StageOptions(
+                throttling_rate_limit=50,
+                throttling_burst_limit=100,
             ),
         )
         if api_domain:

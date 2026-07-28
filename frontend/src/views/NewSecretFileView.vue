@@ -88,10 +88,9 @@ export default {
             uploading: false,
             progressPercent: 0,
             progressPhase: "",
-            put_url: "",
+            post_url: "",
+            post_fields: null,
             object_key: "",
-            salt: window.crypto.getRandomValues(new Uint8Array(16)),
-            iv: window.crypto.getRandomValues(new Uint8Array(12)),
             key: {},
         };
     },
@@ -165,18 +164,22 @@ export default {
                 this.fileValid = false;
                 return;
             }
-            if (!this.put_url || !this.object_key) {
+            if (!this.post_url || !this.post_fields || !this.object_key) {
                 const response = await axios.get(`${apiEndpoint}/file/new`);
-                this.put_url = response.data.put_url
+                this.post_url = response.data.post.url
+                this.post_fields = response.data.post.fields
                 this.object_key = response.data.object_key
             }
 
-            this.key = await getKey(this.password, this.salt);
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+            this.key = await getKey(this.password, salt);
 
             const encryptedAttachmentName = await window.crypto.subtle.encrypt(
                 {
                     name: "AES-GCM",
-                    iv: this.iv,
+                    iv: iv,
                 },
                 this.key,
                 enc.encode(this.attachment.name)
@@ -185,8 +188,8 @@ export default {
             const fileIvPrefix = window.crypto.getRandomValues(new Uint8Array(8));
 
             const encryptedObj = {
-                salt: await this.bufferToBase64Async(this.salt),
-                iv: await this.bufferToBase64Async(this.iv),
+                salt: await this.bufferToBase64Async(salt),
+                iv: await this.bufferToBase64Async(iv),
                 file_name: await this.bufferToBase64Async(new Uint8Array(encryptedAttachmentName)),
                 file_iv_prefix: await this.bufferToBase64Async(fileIvPrefix),
                 object_key: this.object_key,
@@ -202,17 +205,20 @@ export default {
                 this.progressPhase = "Uploading…";
                 this.progressPercent = 0;
 
+                // S3 presigned POST: policy fields must precede the file field.
+                const formData = new FormData();
+                for (const [fieldName, fieldValue] of Object.entries(this.post_fields)) {
+                    formData.append(fieldName, fieldValue);
+                }
+                formData.append("file", encryptedBlob);
+
                 const config = {
-                    transformRequest: [function (data, headers) {
-                        delete headers['Content-Type'];
-                        return data;
-                    }],
                     onUploadProgress: (e) => {
                         this.progressPercent = Math.round((e.loaded / e.total) * 100);
                     },
                 };
 
-                await axios.put(this.put_url, encryptedBlob, config);
+                await axios.post(this.post_url, formData, config);
 
             } catch (err) {
                 console.error(err)

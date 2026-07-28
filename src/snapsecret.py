@@ -18,6 +18,14 @@ if TYPE_CHECKING:
 else:
     DynamoDBServiceResource = object
 
+# Mirrors MAX_FILE_SIZE_BYTES in frontend/src/views/NewSecretFileView.vue - keep in sync.
+MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1 GiB
+
+# Presigned DELETE URLs are handed to the client alongside the GET url so the object
+# can be cleaned up client-side as a best-effort measure; kept short-lived since the
+# DynamoDB record backing it is already burned by the time it's issued.
+DELETE_URL_EXPIRATION_SECONDS = 5 * 60
+
 
 def build_response(
     event: dict, status_code: int = 200, body: Union[str, dict] = None
@@ -140,7 +148,9 @@ def is_base64(input: str) -> bool:
 
 def get_secret_file(event: dict, secret: dict) -> dict:
     get_url = get_s3_presigned_url("GET", secret["object_key"])
-    delete_url = get_s3_presigned_url("DELETE", secret["object_key"])
+    delete_url = get_s3_presigned_url(
+        "DELETE", secret["object_key"], expiration=DELETE_URL_EXPIRATION_SECONDS
+    )
 
     secret["get_url"] = get_url
     secret["delete_url"] = delete_url
@@ -220,19 +230,17 @@ def put_secret(event: dict) -> dict:
 
 def get_new_file(event: dict) -> dict:
     object_key = secrets.token_urlsafe(32)
-    put_url = get_s3_presigned_url("PUT", object_key)
+    post = get_s3_presigned_post(object_key)
 
-    return build_response(
-        event=event, body={"put_url": put_url, "object_key": object_key}
-    )
+    return build_response(event=event, body={"post": post, "object_key": object_key})
 
 
-def get_s3_presigned_url(method: str, object_key: str) -> str:
+def get_s3_presigned_url(
+    method: str, object_key: str, expiration: int = 4 * 3600
+) -> str:
     bucket = os.environ.get("SECRETS_BUCKET")
-    expiration = 4 * 3600
 
     client_methods = {
-        "PUT": "put_object",
         "GET": "get_object",
         "DELETE": "delete_object",
     }
@@ -244,6 +252,26 @@ def get_s3_presigned_url(method: str, object_key: str) -> str:
             Params={"Bucket": bucket, "Key": object_key},
             ExpiresIn=expiration,
             HttpMethod=method,
+        )
+    except ClientError as e:
+        logging.error(e)
+
+    return response
+
+
+def get_s3_presigned_post(object_key: str, expiration: int = 4 * 3600) -> dict:
+    """Mints a presigned S3 POST policy that caps the uploaded object at
+    MAX_FILE_SIZE_BYTES, enforced by S3 itself rather than by the client.
+    """
+    bucket = os.environ.get("SECRETS_BUCKET")
+
+    s3_client = boto3.client("s3", config=Config(signature_version="s3v4"))
+    try:
+        response = s3_client.generate_presigned_post(
+            Bucket=bucket,
+            Key=object_key,
+            Conditions=[["content-length-range", 0, MAX_FILE_SIZE_BYTES]],
+            ExpiresIn=expiration,
         )
     except ClientError as e:
         logging.error(e)

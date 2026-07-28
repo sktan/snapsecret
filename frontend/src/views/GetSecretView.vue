@@ -323,7 +323,6 @@ export default {
                     const fileIvPrefix = await this.base64ToBufferAsync(this.encryptedObj.file_iv_prefix);
                     const decryptedBlob = await this.streamDecryptFileToBlob(this.get_url, key, fileIvPrefix);
 
-                    axios.delete(this.delete_url)
                     this.file_data = URL.createObjectURL(decryptedBlob);
                     this.decryption_complete = true;
                     this.file_name = dec.decode(decryptedFileName);
@@ -336,6 +335,13 @@ export default {
                         "An incorrect decryption passphrase was provided, please check that it is correct.";
                 } finally {
                     this.downloading = false;
+                    // Attempt cleanup on both success and failure (wrong passphrase,
+                    // network drop mid-download, etc.) rather than only on success.
+                    try {
+                        await axios.delete(this.delete_url);
+                    } catch (deleteErr) {
+                        console.error(deleteErr);
+                    }
                 }
             } else {
                 try {
